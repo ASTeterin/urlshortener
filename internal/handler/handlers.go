@@ -10,21 +10,21 @@ import (
 
 var URL string
 
-func Handle(res http.ResponseWriter, req *http.Request) {
-	if req.Method == "POST" {
-		handlePostRequest(res, req)
-	} else if req.Method == "GET" {
-		handleGetRequest(res, req)
+func GetURL(res http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		res.WriteHeader(http.StatusBadRequest)
+		return
 	}
-}
-
-func handleGetRequest(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain")
-	res.Header().Add("Location", URL)
+	res.Header().Set("Location", URL)
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func handlePostRequest(res http.ResponseWriter, req *http.Request) {
+func GetShortURL(res http.ResponseWriter, req *http.Request) {
+	if req.Method != "POST" {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -51,7 +51,7 @@ func handlePostRequest(res http.ResponseWriter, req *http.Request) {
 
 	response := []byte("http://localhost:8080/EwHXdJf")
 	res.Header().Set("Content-Type", "text/plain")
-	res.Header().Add("Content-Length", strconv.Itoa(len(response)))
+	res.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	res.WriteHeader(http.StatusCreated)
 	if _, err = res.Write([]byte(response)); err != nil {
 		log.Printf("Ошибка отправки ответа: %v", err)
