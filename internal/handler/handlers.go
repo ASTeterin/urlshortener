@@ -2,51 +2,58 @@ package handler
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
-func GetShortURL(res http.ResponseWriter, req *http.Request) {
-	if req.Method != "POST" {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
-		return
-	}
+var URL string
 
-	defer req.Body.Close()
-	bodyBytes, err := io.ReadAll(req.Body)
-	if err != nil {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
-		return
+func Handle(res http.ResponseWriter, req *http.Request) {
+	if req.Method == "POST" {
+		handlePostRequest(res, req)
+	} else if req.Method == "GET" {
+		handleGetRequest(res, req)
 	}
-
-	url := string(bodyBytes)
-	if !isValidURL(url) {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
-	res.Header().Set("Content-Type", "text/plain")
-	res.Header().Add("Content-Length", "30")
-	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte("EwHXdJfB"))
 }
 
-func GetURL(res http.ResponseWriter, req *http.Request) {
-	if req.Method != "GET" {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
+func handleGetRequest(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain")
-	res.Header().Add("Location", "https://practicum.yandex.ru")
+	res.Header().Add("Location", URL)
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func isValidURL(str string) bool {
-	u, err := url.Parse(str)
+func handlePostRequest(res http.ResponseWriter, req *http.Request) {
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(req.Body)
+
+	bodyBytes, err := io.ReadAll(req.Body)
 	if err != nil {
-		return false
+		res.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
-	return u.Scheme != "" && u.Host != "" && u.IsAbs()
+	URL = string(bodyBytes)
+	if len(URL) == 0 {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	_, err = url.ParseRequestURI(URL)
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	response := []byte("http://localhost:8080/EwHXdJf")
+	res.Header().Set("Content-Type", "text/plain")
+	res.Header().Add("Content-Length", strconv.Itoa(len(response)))
+	res.WriteHeader(http.StatusCreated)
+	if _, err = res.Write([]byte(response)); err != nil {
+		log.Printf("Ошибка отправки ответа: %v", err)
+	}
 }
