@@ -6,21 +6,49 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
-var URL string
+type ShortenerService interface {
+	GetShortUrl(originalURL string) string
+	GetOriginalUrl(shortUrl string) (*string, error)
+}
 
-func GetURL(res http.ResponseWriter, req *http.Request) {
+type Handler interface {
+	GetURL(res http.ResponseWriter, req *http.Request)
+	GetShortURL(res http.ResponseWriter, req *http.Request)
+}
+
+type handler struct {
+	service ShortenerService
+}
+
+func NewHandler(service ShortenerService) Handler {
+	return &handler{
+		service: service,
+	}
+}
+
+func (h *handler) GetURL(res http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	urlParts := strings.Split(req.URL.Path, "/")
+	shortUrl := urlParts[1]
+	originalUrl, err := h.service.GetOriginalUrl(shortUrl)
+	if err != nil || originalUrl == nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	res.Header().Set("Content-Type", "text/plain")
-	res.Header().Set("Location", URL)
+	res.Header().Set("Location", *originalUrl)
 	res.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func GetShortURL(res http.ResponseWriter, req *http.Request) {
+func (h *handler) GetShortURL(res http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		res.WriteHeader(http.StatusBadRequest)
 		return
@@ -38,22 +66,23 @@ func GetShortURL(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	URL = string(bodyBytes)
-	if len(URL) == 0 {
+	originalUrl := string(bodyBytes)
+	if len(originalUrl) == 0 {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	_, err = url.ParseRequestURI(URL)
+	_, err = url.ParseRequestURI(originalUrl)
 	if err != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	response := []byte("http://localhost:8080/EwHXdJf")
+	short := h.service.GetShortUrl(originalUrl)
+	response := []byte("http://localhost:8080/" + short)
 	res.Header().Set("Content-Type", "text/plain")
 	res.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	res.WriteHeader(http.StatusCreated)
-	if _, err = res.Write([]byte(response)); err != nil {
+	if _, err = res.Write(response); err != nil {
 		log.Printf("Ошибка отправки ответа: %v", err)
 	}
 }
