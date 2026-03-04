@@ -1,18 +1,19 @@
 package handler
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/ASTeterin/urlshortener/internal/repository"
 	"github.com/ASTeterin/urlshortener/internal/service"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func Test_handler_GetURL(t *testing.T) {
+func Test_handler_GetShortURL(t *testing.T) {
 	repo := repository.NewUrlRepository()
 	shortenerService := service.NewShortenerService(repo)
 	h := NewHandler(shortenerService)
@@ -88,6 +89,70 @@ func Test_handler_GetURL(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Len(t, string(resBody), test.want.bodyLen)
+			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+		})
+	}
+}
+
+func Test_handler_GetURL(t *testing.T) {
+	const originalUrl = "http://yandex.ru"
+	repo := repository.NewUrlRepository()
+	shortenerService := service.NewShortenerService(repo)
+	h := NewHandler(shortenerService)
+
+	body := strings.NewReader(originalUrl)
+	request := httptest.NewRequest(http.MethodPost, "/", body)
+	// создаём новый Recorder
+	w := httptest.NewRecorder()
+	h.GetShortURL(w, request)
+	res := w.Result()
+	// проверяем код ответа
+	assert.Equal(t, http.StatusCreated, res.StatusCode)
+	// получаем и проверяем тело запроса
+	defer res.Body.Close()
+	response, err := io.ReadAll(res.Body)
+	assert.NoError(t, err)
+	urlParts := strings.Split(string(response), "/")
+	shortUrl := urlParts[len(urlParts)-1]
+
+	type want struct {
+		code        int
+		response    string
+		contentType string
+		bodyLen     int
+	}
+
+	tests := []struct {
+		name   string
+		method string
+		want   want
+	}{
+		{
+			name:   "positive test",
+			method: "GET",
+			want: want{
+				code:        307,
+				contentType: "text/plain",
+				response:    originalUrl,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(test.method, "/"+string(shortUrl), nil)
+			// создаём новый Recorder
+			w := httptest.NewRecorder()
+			h.GetURL(w, request)
+
+			res := w.Result()
+			// проверяем код ответа
+			assert.Equal(t, test.want.code, res.StatusCode)
+			// получаем и проверяем тело запроса
+			defer res.Body.Close()
+			resBody, err := io.ReadAll(res.Body)
+
+			require.NoError(t, err)
+			assert.Equal(t, test.want.response, string(resBody))
 			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
 		})
 	}
