@@ -1,11 +1,12 @@
 package main
 
 import (
-	"net/http"
+	"log"
 
 	"github.com/ASTeterin/urlshortener/internal/handler"
 	"github.com/ASTeterin/urlshortener/internal/repository"
 	"github.com/ASTeterin/urlshortener/internal/service"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -13,12 +14,16 @@ func main() {
 	shortenerService := service.NewShortenerService(repo)
 	h := handler.NewHandler(shortenerService)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, h.GetShortURL)
-	mux.HandleFunc(`/{id}`, h.GetURL)
+	r := gin.Default()
 
-	err := http.ListenAndServe(`:8080`, mux)
-	if err != nil {
-		panic(err)
+	r.GET("/", func(c *gin.Context) {
+		h.GetURL(c.Writer, c.Request)
+	})
+	r.POST("/:id", func(c *gin.Context) {
+		h.GetShortURL(c.Writer, c.Request)
+	})
+
+	if err := r.Run(); err != nil {
+		log.Fatalf("failed to run server: %v", err)
 	}
 }
