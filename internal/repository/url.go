@@ -5,14 +5,13 @@ import (
 	"time"
 
 	"github.com/ASTeterin/urlshortener/internal/model"
-	"github.com/ASTeterin/urlshortener/internal/service"
 )
 
 type urlRepository struct {
 	storage map[string]model.Url
 }
 
-func NewUrlRepository() service.ShortenerRepository {
+func NewUrlRepository() model.ShortenerRepository {
 	return &urlRepository{
 		storage: make(map[string]model.Url),
 	}

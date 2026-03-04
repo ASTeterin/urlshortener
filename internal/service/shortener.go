@@ -9,20 +9,14 @@ type ShortenerService interface {
 	GetOriginalUrl(shortUrl string) (*string, error)
 }
 
-type ShortenerRepository interface {
-	Store(url model.Url)
-	FindByShort(short string) (model.Url, error)
-	Generate() string
-}
-
-func NewShortenerService(repo ShortenerRepository) ShortenerService {
+func NewShortenerService(repo model.ShortenerRepository) ShortenerService {
 	return &shortenerService{
 		repo: repo,
 	}
 }
 
 type shortenerService struct {
-	repo ShortenerRepository
+	repo model.ShortenerRepository
 }
 
 func (s *shortenerService) GetShortUrl(originalURL string) string {
