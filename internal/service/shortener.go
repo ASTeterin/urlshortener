@@ -1,9 +1,13 @@
 package service
 
 import (
-	"github.com/ASTeterin/urlshortener/internal/handler"
 	"github.com/ASTeterin/urlshortener/internal/model"
 )
+
+type ShortenerService interface {
+	GetShortUrl(originalURL string) string
+	GetOriginalUrl(shortUrl string) (*string, error)
+}
 
 type ShortenerRepository interface {
 	Store(url model.Url)
@@ -11,7 +15,7 @@ type ShortenerRepository interface {
 	Generate() string
 }
 
-func NewShortenerService(repo ShortenerRepository) handler.ShortenerService {
+func NewShortenerService(repo ShortenerRepository) ShortenerService {
 	return &shortenerService{
 		repo: repo,
 	}

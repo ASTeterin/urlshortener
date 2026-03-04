@@ -7,12 +7,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-)
 
-type ShortenerService interface {
-	GetShortUrl(originalURL string) string
-	GetOriginalUrl(shortUrl string) (*string, error)
-}
+	"github.com/ASTeterin/urlshortener/internal/service"
+)
 
 type Handler interface {
 	GetURL(res http.ResponseWriter, req *http.Request)
@@ -20,10 +17,10 @@ type Handler interface {
 }
 
 type handler struct {
-	service ShortenerService
+	service service.ShortenerService
 }
 
-func NewHandler(service ShortenerService) Handler {
+func NewHandler(service service.ShortenerService) Handler {
 	return &handler{
 		service: service,
 	}
