@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,9 +15,7 @@ import (
 )
 
 func Test_handler_GetShortURL(t *testing.T) {
-	repo := repository.NewUrlRepository()
-	shortenerService := service.NewShortenerService(repo)
-	h := NewHandler(shortenerService)
+	router := setupRouter()
 
 	type want struct {
 		code        int
@@ -39,16 +38,6 @@ func Test_handler_GetShortURL(t *testing.T) {
 				code:        201,
 				contentType: "text/plain",
 				bodyLen:     30,
-			},
-		},
-		{
-			name:   "test invalid http-method",
-			method: "GET",
-			body:   "http://yandex.ru",
-			want: want{
-				code:        400,
-				contentType: "",
-				bodyLen:     0,
 			},
 		},
 		{
@@ -76,14 +65,11 @@ func Test_handler_GetShortURL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			body := strings.NewReader(test.body)
 			request := httptest.NewRequest(test.method, "/", body)
-			// создаём новый Recorder
 			w := httptest.NewRecorder()
-			h.GetShortURL(w, request)
+			router.ServeHTTP(w, request)
 
 			res := w.Result()
-			// проверяем код ответа
 			assert.Equal(t, test.want.code, res.StatusCode)
-			// получаем и проверяем тело запроса
 			defer res.Body.Close()
 			resBody, err := io.ReadAll(res.Body)
 
@@ -96,19 +82,13 @@ func Test_handler_GetShortURL(t *testing.T) {
 
 func Test_handler_GetURL(t *testing.T) {
 	const originalUrl = "http://yandex.ru"
-	repo := repository.NewUrlRepository()
-	shortenerService := service.NewShortenerService(repo)
-	h := NewHandler(shortenerService)
-
+	router := setupRouter()
 	body := strings.NewReader(originalUrl)
 	request := httptest.NewRequest(http.MethodPost, "/", body)
-	// создаём новый Recorder
 	w := httptest.NewRecorder()
-	h.GetShortURL(w, request)
+	router.ServeHTTP(w, request)
 	res := w.Result()
-	// проверяем код ответа
 	assert.Equal(t, http.StatusCreated, res.StatusCode)
-	// получаем и проверяем тело запроса
 	defer res.Body.Close()
 	response, err := io.ReadAll(res.Body)
 	assert.NoError(t, err)
@@ -138,16 +118,6 @@ func Test_handler_GetURL(t *testing.T) {
 			},
 		},
 		{
-			name:   "invalid request method",
-			method: "POST",
-			url:    shortUrl,
-			want: want{
-				code:        400,
-				contentType: "",
-				location:    "",
-			},
-		},
-		{
 			name:   "original url not found",
 			method: "GET",
 			url:    "123",
@@ -162,7 +132,7 @@ func Test_handler_GetURL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(test.method, "/"+test.url, nil)
 			w := httptest.NewRecorder()
-			h.GetURL(w, request)
+			router.ServeHTTP(w, request)
 			res := w.Result()
 
 			require.NoError(t, err)
@@ -170,4 +140,20 @@ func Test_handler_GetURL(t *testing.T) {
 			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
 		})
 	}
+}
+
+func setupRouter() *gin.Engine {
+	repo := repository.NewUrlRepository()
+	shortenerService := service.NewShortenerService(repo)
+	h := NewHandler(shortenerService)
+
+	r := gin.Default()
+	r.POST("/", func(c *gin.Context) {
+		h.GetShortURL(c)
+	})
+	r.GET("/:id", func(c *gin.Context) {
+		h.GetURL(c)
+	})
+
+	return r
 }

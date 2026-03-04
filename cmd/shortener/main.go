@@ -17,10 +17,10 @@ func main() {
 	r := gin.Default()
 
 	r.POST("/", func(c *gin.Context) {
-		h.GetShortURL(c.Writer, c.Request)
+		h.GetShortURL(c)
 	})
 	r.GET("/:id", func(c *gin.Context) {
-		h.GetURL(c.Writer, c.Request)
+		h.GetURL(c)
 	})
 
 	if err := r.Run(`:8080`); err != nil {
