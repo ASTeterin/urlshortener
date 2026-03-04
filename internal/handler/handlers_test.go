@@ -117,42 +117,56 @@ func Test_handler_GetURL(t *testing.T) {
 
 	type want struct {
 		code        int
-		response    string
 		contentType string
-		bodyLen     int
+		location    string
 	}
 
 	tests := []struct {
 		name   string
 		method string
+		url    string
 		want   want
 	}{
 		{
 			name:   "positive test",
 			method: "GET",
+			url:    shortUrl,
 			want: want{
 				code:        307,
 				contentType: "text/plain",
-				response:    originalUrl,
+				location:    originalUrl,
+			},
+		},
+		{
+			name:   "invalid request method",
+			method: "POST",
+			url:    shortUrl,
+			want: want{
+				code:        400,
+				contentType: "",
+				location:    "",
+			},
+		},
+		{
+			name:   "original url not found",
+			method: "GET",
+			url:    "123",
+			want: want{
+				code:        400,
+				contentType: "",
+				location:    "",
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(test.method, "/"+string(shortUrl), nil)
-			// создаём новый Recorder
+			request := httptest.NewRequest(test.method, "/"+test.url, nil)
 			w := httptest.NewRecorder()
 			h.GetURL(w, request)
-
 			res := w.Result()
-			// проверяем код ответа
-			assert.Equal(t, test.want.code, res.StatusCode)
-			// получаем и проверяем тело запроса
-			defer res.Body.Close()
-			resBody, err := io.ReadAll(res.Body)
 
 			require.NoError(t, err)
-			assert.Equal(t, test.want.response, string(resBody))
+			assert.Equal(t, test.want.location, res.Header.Get("Location"))
 			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
 		})
 	}
