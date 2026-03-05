@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const baseUrl = "localhost:8000"
+const baseUrl = "http://localhost:8000"
 
 func Test_handler_GetShortURL(t *testing.T) {
 	router := setupRouter()

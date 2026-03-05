@@ -2,10 +2,11 @@ package handler
 
 import (
 	"fmt"
-	"github.com/ASTeterin/urlshortener/internal/service"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
+
+	"github.com/ASTeterin/urlshortener/internal/service"
+	"github.com/gin-gonic/gin"
 )
 
 type Handler interface {
@@ -51,7 +52,7 @@ func (h *handler) GetShortURL(c *gin.Context, baseUrl string) {
 	}
 
 	short := h.service.GetShortUrl(originalUrl)
-	response := []byte(fmt.Sprintf("http://%s/%s", baseUrl, short))
+	response := []byte(fmt.Sprintf("%s/%s", baseUrl, short))
 
 	c.Data(http.StatusCreated, "text/plain", response)
 }
