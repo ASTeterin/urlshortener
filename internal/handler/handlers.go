@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -9,7 +10,7 @@ import (
 
 type Handler interface {
 	GetURL(c *gin.Context)
-	GetShortURL(c *gin.Context)
+	GetShortURL(c *gin.Context, baseUrl string)
 }
 
 type handler struct {
@@ -35,7 +36,7 @@ func (h *handler) GetURL(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, *originalUrl)
 }
 
-func (h *handler) GetShortURL(c *gin.Context) {
+func (h *handler) GetShortURL(c *gin.Context, baseUrl string) {
 	var originalUrl string
 	err := c.BindPlain(&originalUrl)
 	if err != nil || originalUrl == "" {
@@ -50,7 +51,7 @@ func (h *handler) GetShortURL(c *gin.Context) {
 	}
 
 	short := h.service.GetShortUrl(originalUrl)
-	response := []byte("http://localhost:8080/" + short)
+	response := []byte(fmt.Sprintf("http://%s/%s", baseUrl, short))
 
 	c.Data(http.StatusCreated, "text/plain", response)
 }

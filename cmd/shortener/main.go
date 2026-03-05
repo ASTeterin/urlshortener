@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	appConfig "github.com/ASTeterin/urlshortener/internal/config"
 	"github.com/ASTeterin/urlshortener/internal/handler"
 	"github.com/ASTeterin/urlshortener/internal/repository"
 	"github.com/ASTeterin/urlshortener/internal/service"
@@ -13,17 +14,18 @@ func main() {
 	repo := repository.NewUrlRepository()
 	shortenerService := service.NewShortenerService(repo)
 	h := handler.NewHandler(shortenerService)
+	config := appConfig.ParseFlags()
 
 	r := gin.Default()
 
 	r.POST("/", func(c *gin.Context) {
-		h.GetShortURL(c)
+		h.GetShortURL(c, config.ResultBaseUrl)
 	})
 	r.GET("/:id", func(c *gin.Context) {
 		h.GetURL(c)
 	})
 
-	if err := r.Run(`:8080`); err != nil {
+	if err := r.Run(config.AppAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
 }

@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const baseUrl = "localhost:8000"
+
 func Test_handler_GetShortURL(t *testing.T) {
 	router := setupRouter()
 
@@ -149,7 +151,7 @@ func setupRouter() *gin.Engine {
 
 	r := gin.Default()
 	r.POST("/", func(c *gin.Context) {
-		h.GetShortURL(c)
+		h.GetShortURL(c, baseUrl)
 	})
 	r.GET("/:id", func(c *gin.Context) {
 		h.GetURL(c)
