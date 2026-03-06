@@ -16,6 +16,6 @@ type Url struct {
 
 type ShortenerRepository interface {
 	Store(url Url)
-	FindByShort(short string) (Url, error)
+	GetByShort(short string) (Url, error)
 	Generate() string
 }

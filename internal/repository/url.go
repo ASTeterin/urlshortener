@@ -2,6 +2,7 @@ package repository
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/ASTeterin/urlshortener/internal/model"
@@ -9,6 +10,7 @@ import (
 
 type urlRepository struct {
 	storage map[string]model.Url
+	mu      sync.RWMutex
 }
 
 func NewUrlRepository() model.ShortenerRepository {
@@ -18,8 +20,8 @@ func NewUrlRepository() model.ShortenerRepository {
 }
 
 func (repo *urlRepository) Generate() string {
+	rand.Seed(time.Now().UnixNano())
 	for {
-		rand.Seed(time.Now().UnixNano())
 		b := make([]byte, model.ShortUrlLen)
 		for i := range b {
 			b[i] = model.Letters[rand.Intn(len(model.Letters))]
@@ -32,10 +34,14 @@ func (repo *urlRepository) Generate() string {
 }
 
 func (repo *urlRepository) Store(url model.Url) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
 	repo.storage[url.Short] = url
 }
 
-func (repo *urlRepository) FindByShort(short string) (model.Url, error) {
+func (repo *urlRepository) GetByShort(short string) (model.Url, error) {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
 	url, ok := repo.storage[short]
 	if !ok {
 		return model.Url{}, model.ErrUrlNotFound

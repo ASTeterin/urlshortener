@@ -30,7 +30,7 @@ func (s *shortenerService) GetShortUrl(originalURL string) string {
 }
 
 func (s *shortenerService) GetOriginalUrl(shortUrl string) (*string, error) {
-	url, err := s.repo.FindByShort(shortUrl)
+	url, err := s.repo.GetByShort(shortUrl)
 	if err != nil {
 		return nil, err
 	}
