@@ -41,13 +41,13 @@ func (h *handler) GetShortURL(c *gin.Context, baseUrl string) {
 	var originalUrl string
 	err := c.BindPlain(&originalUrl)
 	if err != nil || originalUrl == "" {
-		c.AbortWithStatus(400)
+		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
 	_, err = url.ParseRequestURI(originalUrl)
 	if err != nil {
-		c.AbortWithStatus(400)
+		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
