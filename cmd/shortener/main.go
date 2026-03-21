@@ -15,6 +15,7 @@ func main() {
 	repo := repository.NewUrlRepository()
 	shortenerService := service.NewShortenerService(repo)
 	h := handler.NewHandler(shortenerService)
+	restApiHandler := handler.NewRestApiHandler(shortenerService)
 	config := appConfig.ParseFlags()
 
 	r := gin.Default()
@@ -24,6 +25,9 @@ func main() {
 	})
 	r.GET("/:id", func(c *gin.Context) {
 		h.GetURL(c)
+	})
+	r.POST("/api/shorten", func(c *gin.Context) {
+		restApiHandler.GetShortURL(c, config.ResultBaseUrl)
 	})
 
 	if err := r.Run(config.AppAddr); err != nil {

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -14,12 +15,34 @@ type Handler interface {
 	GetShortURL(c *gin.Context, baseUrl string)
 }
 
+type RestApiHandler interface {
+	GetShortURL(c *gin.Context, baseUrl string)
+}
+
+type UrlData struct {
+	URL string `json:"url"`
+}
+
+type ShortUrlData struct {
+	ShortUrl string `json:"result"`
+}
+
 type handler struct {
+	service service.ShortenerService
+}
+
+type restApiHandler struct {
 	service service.ShortenerService
 }
 
 func NewHandler(service service.ShortenerService) Handler {
 	return &handler{
+		service: service,
+	}
+}
+
+func NewRestApiHandler(service service.ShortenerService) RestApiHandler {
+	return &restApiHandler{
 		service: service,
 	}
 }
@@ -35,6 +58,38 @@ func (h *handler) GetURL(c *gin.Context) {
 	c.Header("Content-Type", "text/plain")
 	c.Header("Location", *originalUrl)
 	c.Redirect(http.StatusTemporaryRedirect, *originalUrl)
+}
+
+func (h *restApiHandler) GetShortURL(c *gin.Context, baseUrl string) {
+
+	var urlData UrlData
+	err := c.BindJSON(&urlData)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	originalUrl := urlData.URL
+	if originalUrl == "" {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	_, err = url.ParseRequestURI(originalUrl)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	short := (fmt.Sprintf("%s/%s", baseUrl, h.service.GetShortUrl(originalUrl)))
+	var responseData ShortUrlData
+	responseData.ShortUrl = short
+	response, err := json.Marshal(responseData)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Data(http.StatusCreated, "application/json", response)
+
 }
 
 func (h *handler) GetShortURL(c *gin.Context, baseUrl string) {

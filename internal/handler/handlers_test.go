@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
@@ -82,6 +84,82 @@ func Test_handler_GetShortURL(t *testing.T) {
 	}
 }
 
+func Test_restApiHandler_GetShortURL(t *testing.T) {
+	router := setupRouter()
+
+	type want struct {
+		code        int
+		response    ShortUrlData
+		contentType string
+		hasError    bool
+	}
+
+	tests := []struct {
+		name   string
+		method string
+		body   UrlData
+		want   want
+	}{
+		{
+			name:   "positive test",
+			method: "POST",
+			body: UrlData{
+				URL: "http://yandex.ru",
+			},
+			want: want{
+				code:        201,
+				contentType: "application/json",
+				hasError:    false,
+			},
+		},
+		{
+			name:   "test empty request",
+			method: "POST",
+			body: UrlData{
+				URL: "",
+			},
+			want: want{
+				code:        400,
+				hasError:    true,
+				contentType: "",
+			},
+		},
+		{
+			name:   "test invalid URL in request",
+			method: "POST",
+			body: UrlData{
+				URL: "",
+			},
+			want: want{
+				code:        400,
+				hasError:    true,
+				contentType: "",
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			jsonData, err := json.Marshal(test.body)
+			body := bytes.NewReader(jsonData)
+			request := httptest.NewRequest(test.method, "/api/shorten", body)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, request)
+
+			res := w.Result()
+			assert.Equal(t, test.want.code, res.StatusCode)
+			require.NoError(t, err)
+			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+			if !test.want.hasError {
+				defer res.Body.Close()
+				resBody, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				var shortUrlData ShortUrlData
+				err = json.Unmarshal(resBody, &shortUrlData)
+			}
+		})
+	}
+}
+
 func Test_handler_GetURL(t *testing.T) {
 	const originalUrl = "http://yandex.ru"
 	router := setupRouter()
@@ -148,6 +226,7 @@ func setupRouter() *gin.Engine {
 	repo := repository.NewUrlRepository()
 	shortenerService := service.NewShortenerService(repo)
 	h := NewHandler(shortenerService)
+	restApiHandler := NewRestApiHandler(shortenerService)
 
 	r := gin.Default()
 	r.POST("/", func(c *gin.Context) {
@@ -155,6 +234,9 @@ func setupRouter() *gin.Engine {
 	})
 	r.GET("/:id", func(c *gin.Context) {
 		h.GetURL(c)
+	})
+	r.POST("/api/shorten", func(c *gin.Context) {
+		restApiHandler.GetShortURL(c, baseUrl)
 	})
 
 	return r
