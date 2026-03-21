@@ -61,7 +61,6 @@ func (h *handler) GetURL(c *gin.Context) {
 }
 
 func (h *restApiHandler) GetShortURL(c *gin.Context, baseUrl string) {
-
 	var urlData UrlData
 	err := c.BindJSON(&urlData)
 	if err != nil {

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"github.com/ASTeterin/urlshortener/internal/compress"
 	appConfig "github.com/ASTeterin/urlshortener/internal/config"
 	"github.com/ASTeterin/urlshortener/internal/handler"
 	"github.com/ASTeterin/urlshortener/internal/logger"
@@ -19,7 +20,7 @@ func main() {
 	config := appConfig.ParseFlags()
 
 	r := gin.Default()
-	r.Use(logger.RequestLogger())
+	r.Use(logger.RequestLogger(), compress.RequestEncoder())
 	r.POST("/", func(c *gin.Context) {
 		h.GetShortURL(c, config.ResultBaseUrl)
 	})
