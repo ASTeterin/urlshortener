@@ -79,7 +79,12 @@ func (h *restApiHandler) GetShortURL(c *gin.Context, baseUrl string) {
 		return
 	}
 
-	short := (fmt.Sprintf("%s/%s", baseUrl, h.service.GetShortUrl(originalUrl)))
+	shortUrl, err := h.service.GetShortUrl(originalUrl)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	short := (fmt.Sprintf("%s/%s", baseUrl, *shortUrl))
 	var responseData ShortUrlData
 	responseData.ShortUrl = short
 	response, err := json.Marshal(responseData)
@@ -105,8 +110,12 @@ func (h *handler) GetShortURL(c *gin.Context, baseUrl string) {
 		return
 	}
 
-	short := h.service.GetShortUrl(originalUrl)
-	response := []byte(fmt.Sprintf("%s/%s", baseUrl, short))
+	short, err := h.service.GetShortUrl(originalUrl)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	response := []byte(fmt.Sprintf("%s/%s", baseUrl, *short))
 
 	c.Data(http.StatusCreated, "text/plain", response)
 }

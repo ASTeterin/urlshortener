@@ -5,7 +5,7 @@ import (
 )
 
 type ShortenerService interface {
-	GetShortUrl(originalURL string) string
+	GetShortUrl(originalURL string) (*string, error)
 	GetOriginalUrl(shortUrl string) (*string, error)
 }
 
@@ -19,14 +19,18 @@ type shortenerService struct {
 	repo model.ShortenerRepository
 }
 
-func (s *shortenerService) GetShortUrl(originalURL string) string {
+func (s *shortenerService) GetShortUrl(originalURL string) (*string, error) {
 	short := s.repo.Generate()
 	url := model.Url{
+		Uuid:     s.repo.NextUuid(),
 		Short:    short,
 		Original: originalURL,
 	}
-	s.repo.Store(url)
-	return url.Short
+	err := s.repo.Store(url)
+	if err != nil {
+		return nil, err
+	}
+	return &url.Short, nil
 }
 
 func (s *shortenerService) GetOriginalUrl(shortUrl string) (*string, error) {

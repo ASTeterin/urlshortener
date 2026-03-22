@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/ASTeterin/urlshortener/internal/repository/inMemory"
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ASTeterin/urlshortener/internal/repository"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -223,7 +223,7 @@ func Test_handler_GetURL(t *testing.T) {
 }
 
 func setupRouter() *gin.Engine {
-	repo := repository.NewUrlRepository()
+	repo := inMemory.NewUrlRepository()
 	shortenerService := service.NewShortenerService(repo)
 	h := NewHandler(shortenerService)
 	restApiHandler := NewRestApiHandler(shortenerService)

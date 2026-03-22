@@ -13,11 +13,14 @@ import (
 )
 
 func main() {
-	repo := repository.NewUrlRepository()
+	config := appConfig.ParseFlags()
+	repo, err := repository.NewUrlRepository(config.FilePath)
+	if err != nil {
+		log.Fatalf("failed to run server: %v", err)
+	}
 	shortenerService := service.NewShortenerService(repo)
 	h := handler.NewHandler(shortenerService)
 	restApiHandler := handler.NewRestApiHandler(shortenerService)
-	config := appConfig.ParseFlags()
 
 	r := gin.Default()
 	r.Use(logger.RequestLogger(), compress.RequestEncoder())

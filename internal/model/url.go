@@ -10,12 +10,14 @@ const (
 )
 
 type Url struct {
-	Short    string
-	Original string
+	Uuid     int    `json:"uuid"`
+	Short    string `json:"short"`
+	Original string `json:"original_url"`
 }
 
 type ShortenerRepository interface {
-	Store(url Url)
+	Store(url Url) error
 	GetByShort(short string) (Url, error)
 	Generate() string
+	NextUuid() int
 }
