@@ -2,7 +2,6 @@ package repository
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"sync"
@@ -81,11 +80,11 @@ func (repo *urlRepository) save() error {
 		return err
 	}
 
-	return ioutil.WriteFile(repo.filePath, data, 0644)
+	return os.WriteFile(repo.filePath, data, 0644)
 }
 
 func (repo *urlRepository) load() error {
-	data, err := ioutil.ReadFile(repo.filePath)
+	data, err := os.ReadFile(repo.filePath)
 	if err != nil {
 		return err
 	}

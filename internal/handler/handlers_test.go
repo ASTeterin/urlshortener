@@ -128,7 +128,7 @@ func Test_restApiHandler_GetShortURL(t *testing.T) {
 			name:   "test invalid URL in request",
 			method: "POST",
 			body: UrlData{
-				URL: "",
+				URL: "123",
 			},
 			want: want{
 				code:        400,
