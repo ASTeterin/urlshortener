@@ -37,9 +37,6 @@ func RequestEncoder() gin.HandlerFunc {
 		acceptEncoding := c.Request.Header.Get("Accept-Encoding")
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
 		if supportsGzip {
-			if c.Writer.Status() < 300 {
-				c.Writer.Header().Set("Content-Encoding", "gzip")
-			}
 			zw := gzip.NewWriter(c.Writer)
 			c.Writer = &gzipResponseWriter{zw: zw, ResponseWriter: c.Writer}
 			defer zw.Close()
@@ -49,23 +46,6 @@ func RequestEncoder() gin.HandlerFunc {
 	}
 }
 
-func (w *gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.zw.Write(b)
-}
-
-func (w *gzipResponseWriter) WriteString(s string) (int, error) {
-	return w.zw.Write([]byte(s))
-}
-
 func (w *gzipResponseWriter) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
-}
-
-func (w *gzipResponseWriter) Flush() {
-	w.zw.Flush()
-	w.ResponseWriter.Flush()
-}
-
-func (w *gzipResponseWriter) CloseNotify() <-chan bool {
-	return w.ResponseWriter.CloseNotify()
 }
