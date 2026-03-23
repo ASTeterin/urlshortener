@@ -22,7 +22,6 @@ type shortenerService struct {
 func (s *shortenerService) GetShortUrl(originalURL string) (*string, error) {
 	short := s.repo.Generate()
 	url := model.Url{
-		Uuid:     s.repo.NextUuid(),
 		Short:    short,
 		Original: originalURL,
 	}

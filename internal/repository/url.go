@@ -35,10 +35,6 @@ func NewUrlRepository(filePath string) (model.ShortenerRepository, error) {
 	return repo, nil
 }
 
-func (repo *urlRepository) NextUuid() int {
-	return repo.uuid + 1
-}
-
 func (repo *urlRepository) Generate() string {
 	rand.Seed(time.Now().UnixNano())
 	for {
@@ -54,6 +50,7 @@ func (repo *urlRepository) Generate() string {
 }
 
 func (repo *urlRepository) Store(url model.Url) error {
+	url.Uuid = repo.nextUuid()
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	repo.storage[url.Short] = url
@@ -70,9 +67,13 @@ func (repo *urlRepository) GetByShort(short string) (model.Url, error) {
 	return url, nil
 }
 
-func (r *urlRepository) save() error {
+func (repo *urlRepository) nextUuid() int {
+	return repo.uuid + 1
+}
+
+func (repo *urlRepository) save() error {
 	var values []model.Url
-	for _, v := range r.storage {
+	for _, v := range repo.storage {
 		values = append(values, v)
 	}
 	data, err := json.Marshal(values)
@@ -80,11 +81,11 @@ func (r *urlRepository) save() error {
 		return err
 	}
 
-	return ioutil.WriteFile(r.filePath, data, 0644)
+	return ioutil.WriteFile(repo.filePath, data, 0644)
 }
 
-func (r *urlRepository) load() error {
-	data, err := ioutil.ReadFile(r.filePath)
+func (repo *urlRepository) load() error {
+	data, err := ioutil.ReadFile(repo.filePath)
 	if err != nil {
 		return err
 	}
@@ -103,7 +104,7 @@ func (r *urlRepository) load() error {
 		}
 	}
 
-	r.uuid = maxUuid
-	r.storage = urlToShortUrlMap
+	repo.uuid = maxUuid
+	repo.storage = urlToShortUrlMap
 	return nil
 }

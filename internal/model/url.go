@@ -19,5 +19,4 @@ type ShortenerRepository interface {
 	Store(url Url) error
 	GetByShort(short string) (Url, error)
 	Generate() string
-	NextUuid() int
 }
