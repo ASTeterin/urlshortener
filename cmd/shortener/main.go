@@ -19,7 +19,7 @@ func main() {
 		log.Fatalf("failed to run server: %v", err)
 	}
 	shortenerService := service.NewShortenerService(repo)
-	h := handler.NewHandler(shortenerService)
+	h := handler.NewHandler(shortenerService, config.DbConnStr)
 	restApiHandler := handler.NewRestApiHandler(shortenerService)
 
 	r := gin.Default()
@@ -32,6 +32,9 @@ func main() {
 	})
 	r.POST("/api/shorten", func(c *gin.Context) {
 		restApiHandler.GetShortURL(c, config.ResultBaseUrl)
+	})
+	r.GET("/ping", func(c *gin.Context) {
+		h.CheckDbConnection(c)
 	})
 
 	if err := r.Run(config.AppAddr); err != nil {

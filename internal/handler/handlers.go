@@ -1,18 +1,23 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type Handler interface {
 	GetURL(c *gin.Context)
 	GetShortURL(c *gin.Context, baseUrl string)
+	CheckDbConnection(c *gin.Context)
 }
 
 type RestApiHandler interface {
@@ -28,16 +33,18 @@ type ShortUrlData struct {
 }
 
 type handler struct {
-	service service.ShortenerService
+	service   service.ShortenerService
+	dbConnStr string
 }
 
 type restApiHandler struct {
 	service service.ShortenerService
 }
 
-func NewHandler(service service.ShortenerService) Handler {
+func NewHandler(service service.ShortenerService, dbConnStr string) Handler {
 	return &handler{
-		service: service,
+		service:   service,
+		dbConnStr: dbConnStr,
 	}
 }
 
@@ -118,4 +125,20 @@ func (h *handler) GetShortURL(c *gin.Context, baseUrl string) {
 	response := []byte(fmt.Sprintf("%s/%s", baseUrl, *short))
 
 	c.Data(http.StatusCreated, "text/plain", response)
+}
+
+func (h *handler) CheckDbConnection(c *gin.Context) {
+	db, err := sql.Open("pgx", h.dbConnStr)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	if err = db.PingContext(ctx); err != nil {
+		c.Status(http.StatusInternalServerError)
+	}
+
+	c.Status(http.StatusOK)
 }
