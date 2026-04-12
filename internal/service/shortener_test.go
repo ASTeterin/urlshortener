@@ -2,7 +2,7 @@ package service
 
 import (
 	"github.com/ASTeterin/urlshortener/internal/model"
-	"github.com/ASTeterin/urlshortener/internal/repository"
+	"github.com/ASTeterin/urlshortener/internal/repository/file"
 	"reflect"
 	"testing"
 )
@@ -10,7 +10,7 @@ import (
 func Test_shortenerService_GetOriginalUrl(t *testing.T) {
 	const shortUrl = "qWeRtYuI"
 	var originalUrl = "http://google.com"
-	repo, err := repository.NewUrlRepository("test")
+	repo, err := file.NewUrlRepository("test")
 	if err != nil {
 		return
 	}

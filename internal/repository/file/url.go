@@ -1,6 +1,7 @@
-package repository
+package file
 
 import (
+	"context"
 	"encoding/json"
 	"math/rand"
 	"os"
@@ -34,7 +35,7 @@ func NewUrlRepository(filePath string) (model.ShortenerRepository, error) {
 	return repo, nil
 }
 
-func (repo *urlRepository) Generate() string {
+func (repo *urlRepository) Generate(_ context.Context) string {
 	rand.Seed(time.Now().UnixNano())
 	for {
 		b := make([]byte, model.ShortUrlLen)
@@ -48,7 +49,7 @@ func (repo *urlRepository) Generate() string {
 	}
 }
 
-func (repo *urlRepository) Store(url model.Url) error {
+func (repo *urlRepository) Store(_ context.Context, url model.Url) error {
 	url.Uuid = repo.nextUuid()
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
@@ -56,7 +57,7 @@ func (repo *urlRepository) Store(url model.Url) error {
 	return repo.save()
 }
 
-func (repo *urlRepository) GetByShort(short string) (model.Url, error) {
+func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.Url, error) {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()
 	url, ok := repo.storage[short]
