@@ -8,6 +8,7 @@ import (
 type ShortenerService interface {
 	GetShortUrl(ctx context.Context, originalURL string) (*string, error)
 	GetOriginalUrl(ctx context.Context, shortUrl string) (*string, error)
+	ListShortUrl(ctx context.Context, originalURLsMap map[string]string) (map[string]string, error)
 }
 
 func NewShortenerService(repo model.ShortenerRepository) ShortenerService {
@@ -31,6 +32,25 @@ func (s *shortenerService) GetShortUrl(ctx context.Context, originalURL string) 
 		return nil, err
 	}
 	return &url.Short, nil
+}
+
+func (s *shortenerService) ListShortUrl(ctx context.Context, originalURLsMap map[string]string) (map[string]string, error) {
+	result := make(map[string]string)
+	urls := make([]model.Url, 0, len(originalURLsMap))
+	for k, v := range originalURLsMap {
+		short := s.repo.Generate(ctx)
+		url := model.Url{
+			Short:    short,
+			Original: v,
+		}
+		urls = append(urls, url)
+		result[k] = url.Short
+	}
+	err := s.repo.StoreAll(ctx, urls)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (s *shortenerService) GetOriginalUrl(ctx context.Context, shortUrl string) (*string, error) {

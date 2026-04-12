@@ -52,6 +52,9 @@ func main() {
 	r.GET("/ping", func(c *gin.Context) {
 		h.CheckDbConnection(ctx, c)
 	})
+	r.POST("/api/shorten/batch", func(c *gin.Context) {
+		restApiHandler.ListShortURLs(ctx, c, config.ResultBaseUrl)
+	})
 
 	if err := r.Run(config.AppAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)

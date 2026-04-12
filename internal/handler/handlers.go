@@ -20,6 +20,7 @@ type Handler interface {
 
 type RestApiHandler interface {
 	GetShortURL(ctx context.Context, c *gin.Context, baseUrl string)
+	ListShortURLs(ctx context.Context, c *gin.Context, baseUrl string)
 }
 
 type UrlData struct {
@@ -28,6 +29,16 @@ type UrlData struct {
 
 type ShortUrlData struct {
 	ShortUrl string `json:"result"`
+}
+
+type ListUrlItem struct {
+	URL           string `json:"original_url"`
+	CorrelationId string `json:"correlation_id"`
+}
+
+type ListShortUrlItem struct {
+	CorrelationId string `json:"correlation_id"`
+	ShortUrl      string `json:"short_url"`
 }
 
 type handler struct {
@@ -98,7 +109,49 @@ func (h *restApiHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUr
 		return
 	}
 	c.Data(http.StatusCreated, "application/json", response)
+}
 
+func (h *restApiHandler) ListShortURLs(ctx context.Context, c *gin.Context, baseUrl string) {
+	var urls []ListUrlItem
+	err := c.BindJSON(&urls)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	urlsMap := make(map[string]string)
+	for _, u := range urls {
+		if u.URL == "" {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		_, err = url.ParseRequestURI(u.URL)
+		if err != nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		urlsMap[u.CorrelationId] = u.URL
+	}
+
+	shortUrlsMap, err := h.service.ListShortUrl(ctx, urlsMap)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	responseData := make([]ListShortUrlItem, 0, len(shortUrlsMap))
+	for correlationId, v := range shortUrlsMap {
+		short := (fmt.Sprintf("%s/%s", baseUrl, v))
+		responseData = append(responseData, ListShortUrlItem{
+			CorrelationId: correlationId,
+			ShortUrl:      short,
+		})
+	}
+	response, err := json.Marshal(responseData)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Data(http.StatusCreated, "application/json", response)
 }
 
 func (h *handler) GetShortURL(ctx context.Context, c *gin.Context, baseUrl string) {

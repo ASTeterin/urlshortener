@@ -57,6 +57,15 @@ func (repo *urlRepository) Store(_ context.Context, url model.Url) error {
 	return repo.save()
 }
 
+func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.Url) error {
+	for _, url := range urls {
+		if err := repo.Store(ctx, url); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.Url, error) {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()

@@ -57,6 +57,23 @@ func (repo *UrlRepository) Store(ctx context.Context, url model.Url) error {
 	return nil
 }
 
+func (repo *UrlRepository) StoreAll(ctx context.Context, urls []model.Url) error {
+	tx, err := repo.db.Begin()
+	if err != nil {
+		return err
+	}
+	query := `INSERT INTO urls(short_url, original_url) VALUES ($1, $2)`
+	for _, url := range urls {
+		_, err = tx.ExecContext(ctx, query, url.Short, url.Original)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+
+}
+
 func (repo *UrlRepository) GetByShort(ctx context.Context, short string) (model.Url, error) {
 	query := `SELECT id, short_url, original_url FROM urls WHERE short_url = $1`
 	url := model.Url{}
