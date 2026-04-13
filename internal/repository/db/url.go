@@ -22,11 +22,11 @@ func NewURLRepository(db *sql.DB) *URLRepository {
 }
 
 func (repo *URLRepository) Generate(ctx context.Context) string {
-	rand.Seed(time.Now().UnixNano())
+	var urlRandom = rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		b := make([]byte, model.ShortURLLen)
 		for i := range b {
-			b[i] = model.Letters[rand.Intn(len(model.Letters))]
+			b[i] = model.Letters[urlRandom.Intn(len(model.Letters))]
 		}
 		value := string(b)
 		_, err := repo.GetByShort(ctx, value)

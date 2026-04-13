@@ -3,12 +3,11 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"github.com/ASTeterin/urlshortener/internal/model"
 	"math/rand"
 	"os"
 	"sync"
 	"time"
-
-	"github.com/ASTeterin/urlshortener/internal/model"
 )
 
 type urlRepository struct {
@@ -36,11 +35,11 @@ func NewURLRepository(filePath string) (model.ShortenerRepository, error) {
 }
 
 func (repo *urlRepository) Generate(_ context.Context) string {
-	rand.Seed(time.Now().UnixNano())
+	var urlRandom = rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		b := make([]byte, model.ShortURLLen)
 		for i := range b {
-			b[i] = model.Letters[rand.Intn(len(model.Letters))]
+			b[i] = model.Letters[urlRandom.Intn(len(model.Letters))]
 		}
 		value := string(b)
 		if _, ok := repo.storage[value]; !ok {

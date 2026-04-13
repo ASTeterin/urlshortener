@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/gin-gonic/gin"
@@ -16,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const baseUrl = "http://localhost:8000"
+const baseURL = "http://localhost:8000"
 
 func Test_handler_GetShortURL(t *testing.T) {
 	router := setupRouter()
@@ -89,7 +90,7 @@ func Test_restAPIHandler_GetShortURL(t *testing.T) {
 
 	type want struct {
 		code        int
-		response    ShortUrlData
+		response    ShortURLData
 		contentType string
 		hasError    bool
 	}
@@ -153,17 +154,17 @@ func Test_restAPIHandler_GetShortURL(t *testing.T) {
 				defer res.Body.Close()
 				resBody, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
-				var shortUrlData ShortUrlData
-				err = json.Unmarshal(resBody, &shortUrlData)
+				var shortURLData ShortURLData
+				err = json.Unmarshal(resBody, &shortURLData)
 			}
 		})
 	}
 }
 
 func Test_handler_GetURL(t *testing.T) {
-	const originalUrl = "http://yandex.ru"
+	const originalURL = "http://yandex.ru"
 	router := setupRouter()
-	body := strings.NewReader(originalUrl)
+	body := strings.NewReader(originalURL)
 	request := httptest.NewRequest(http.MethodPost, "/", body)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, request)
@@ -173,7 +174,7 @@ func Test_handler_GetURL(t *testing.T) {
 	response, err := io.ReadAll(res.Body)
 	assert.NoError(t, err)
 	urlParts := strings.Split(string(response), "/")
-	shortUrl := urlParts[len(urlParts)-1]
+	shortURL := urlParts[len(urlParts)-1]
 
 	type want struct {
 		code        int
@@ -190,11 +191,11 @@ func Test_handler_GetURL(t *testing.T) {
 		{
 			name:   "positive test",
 			method: "GET",
-			url:    shortUrl,
+			url:    shortURL,
 			want: want{
 				code:        307,
 				contentType: "text/plain",
-				location:    originalUrl,
+				location:    originalURL,
 			},
 		},
 		{
@@ -223,23 +224,24 @@ func Test_handler_GetURL(t *testing.T) {
 }
 
 func setupRouter() *gin.Engine {
+	ctx := context.Background()
 	repo, err := file.NewURLRepository("test")
 	if err != nil {
 		panic(err)
 	}
 	shortenerService := service.NewShortenerService(repo)
-	h := NewHandler(shortenerService)
+	h := NewHandler(shortenerService, nil)
 	restApiHandler := NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
 	r.POST("/", func(c *gin.Context) {
-		h.GetShortURL(c, baseUrl)
+		h.GetShortURL(ctx, c, baseURL)
 	})
 	r.GET("/:id", func(c *gin.Context) {
-		h.GetURL(c)
+		h.GetURL(ctx, c)
 	})
 	r.POST("/api/shorten", func(c *gin.Context) {
-		restApiHandler.GetShortURL(c, baseUrl)
+		restApiHandler.GetShortURL(ctx, c, baseURL)
 	})
 
 	return r

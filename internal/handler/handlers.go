@@ -14,29 +14,29 @@ import (
 
 type Handler interface {
 	GetURL(ctx context.Context, c *gin.Context)
-	GetShortURL(ctx context.Context, c *gin.Context, baseUrl string)
+	GetShortURL(ctx context.Context, c *gin.Context, baseURL string)
 	CheckDbConnection(ctx context.Context, c *gin.Context)
 }
 
 type RestAPIHandler interface {
-	GetShortURL(ctx context.Context, c *gin.Context, baseUrl string)
-	ListShortURLs(ctx context.Context, c *gin.Context, baseUrl string)
+	GetShortURL(ctx context.Context, c *gin.Context, baseURL string)
+	ListShortURLs(ctx context.Context, c *gin.Context, baseURL string)
 }
 
 type URLData struct {
 	URL string `json:"url"`
 }
 
-type ShortUrlData struct {
-	ShortUrl string `json:"result"`
+type ShortURLData struct {
+	ShortURL string `json:"result"`
 }
 
-type ListUrlItem struct {
+type ListURLItem struct {
 	URL           string `json:"original_url"`
 	CorrelationId string `json:"correlation_id"`
 }
 
-type ListShortUrlItem struct {
+type ListShortURLItem struct {
 	CorrelationId string `json:"correlation_id"`
 	ShortURL      string `json:"short_url"`
 }
@@ -64,19 +64,19 @@ func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
 }
 
 func (h *handler) GetURL(ctx context.Context, c *gin.Context) {
-	shortUrl := c.Param("id")
-	originalUrl, err := h.service.GetOriginalUrl(ctx, shortUrl)
-	if err != nil || originalUrl == nil {
+	shortURL := c.Param("id")
+	originalURL, err := h.service.GetOriginalURL(ctx, shortURL)
+	if err != nil || originalURL == nil {
 		c.AbortWithStatus(400)
 		return
 	}
 
 	c.Header("Content-Type", "text/plain")
-	c.Header("Location", *originalUrl)
-	c.Redirect(http.StatusTemporaryRedirect, *originalUrl)
+	c.Header("Location", *originalURL)
+	c.Redirect(http.StatusTemporaryRedirect, *originalURL)
 }
 
-func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUrl string) {
+func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseURL string) {
 	var urlData URLData
 	err := c.BindJSON(&urlData)
 	if err != nil {
@@ -84,25 +84,25 @@ func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUr
 		return
 	}
 
-	originalUrl := urlData.URL
-	if originalUrl == "" {
+	originalURL := urlData.URL
+	if originalURL == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	_, err = url.ParseRequestURI(originalUrl)
+	_, err = url.ParseRequestURI(originalURL)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	shortUrl, err := h.service.GetShortUrl(ctx, originalUrl)
+	shortURL, err := h.service.GetShortURL(ctx, originalURL)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	short := (fmt.Sprintf("%s/%s", baseUrl, *shortUrl))
-	var responseData ShortUrlData
-	responseData.ShortUrl = short
+	short := (fmt.Sprintf("%s/%s", baseURL, *shortURL))
+	var responseData ShortURLData
+	responseData.ShortURL = short
 	response, err := json.Marshal(responseData)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
@@ -111,8 +111,8 @@ func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUr
 	c.Data(http.StatusCreated, "application/json", response)
 }
 
-func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, baseUrl string) {
-	var urls []ListUrlItem
+func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, baseURL string) {
+	var urls []ListURLItem
 	err := c.BindJSON(&urls)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
@@ -133,15 +133,15 @@ func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, base
 		urlsMap[u.CorrelationId] = u.URL
 	}
 
-	shortUrlsMap, err := h.service.ListShortUrl(ctx, urlsMap)
+	shortURLsMap, err := h.service.ListShortURL(ctx, urlsMap)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	responseData := make([]ListShortUrlItem, 0, len(shortUrlsMap))
-	for correlationId, v := range shortUrlsMap {
-		short := (fmt.Sprintf("%s/%s", baseUrl, v))
-		responseData = append(responseData, ListShortUrlItem{
+	responseData := make([]ListShortURLItem, 0, len(shortURLsMap))
+	for correlationId, v := range shortURLsMap {
+		short := (fmt.Sprintf("%s/%s", baseURL, v))
+		responseData = append(responseData, ListShortURLItem{
 			CorrelationId: correlationId,
 			ShortURL:      short,
 		})
@@ -154,26 +154,26 @@ func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, base
 	c.Data(http.StatusCreated, "application/json", response)
 }
 
-func (h *handler) GetShortURL(ctx context.Context, c *gin.Context, baseUrl string) {
-	var originalUrl string
-	err := c.BindPlain(&originalUrl)
-	if err != nil || originalUrl == "" {
+func (h *handler) GetShortURL(ctx context.Context, c *gin.Context, baseURL string) {
+	var originalURL string
+	err := c.BindPlain(&originalURL)
+	if err != nil || originalURL == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	_, err = url.ParseRequestURI(originalUrl)
+	_, err = url.ParseRequestURI(originalURL)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	short, err := h.service.GetShortUrl(ctx, originalUrl)
+	short, err := h.service.GetShortURL(ctx, originalURL)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	response := []byte(fmt.Sprintf("%s/%s", baseUrl, *short))
+	response := []byte(fmt.Sprintf("%s/%s", baseURL, *short))
 
 	c.Data(http.StatusCreated, "text/plain", response)
 }

@@ -8,17 +8,17 @@ import (
 	"testing"
 )
 
-func Test_shortenerService_GetOriginalUrl(t *testing.T) {
-	const shortUrl = "qWeRtYuI"
-	var originalUrl = "http://google.com"
+func Test_shortenerService_GetOriginalURL(t *testing.T) {
+	const shortURL = "qWeRtYuI"
+	var originalURL = "http://google.com"
 	ctx := context.Background()
 	repo, err := file.NewURLRepository("test")
 	if err != nil {
 		return
 	}
 	url := model.URL{
-		Short:    shortUrl,
-		Original: originalUrl,
+		Short:    shortURL,
+		Original: originalURL,
 	}
 	err = repo.Store(ctx, url)
 	if err != nil {
@@ -27,21 +27,21 @@ func Test_shortenerService_GetOriginalUrl(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		shortUrl string
+		shortURL string
 		want     *string
 		wantErr  bool
 		error    error
 	}{
 		{
 			name:     "positive test",
-			shortUrl: shortUrl,
-			want:     &originalUrl,
+			shortURL: shortURL,
+			want:     &originalURL,
 			wantErr:  false,
 			error:    nil,
 		},
 		{
 			name:     "original url not found",
-			shortUrl: "123",
+			shortURL: "123",
 			want:     nil,
 			wantErr:  true,
 			error:    model.ErrURLNotFound,
@@ -52,13 +52,13 @@ func Test_shortenerService_GetOriginalUrl(t *testing.T) {
 			s := &shortenerService{
 				repo: repo,
 			}
-			got, err := s.GetOriginalUrl(ctx, tt.shortUrl)
+			got, err := s.GetOriginalURL(ctx, tt.shortURL)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetOriginalUrl() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetOriginalURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetOriginalUrl() got = %v, want %v", got, tt.want)
+				t.Errorf("GetOriginalURL() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
