@@ -15,7 +15,7 @@ import (
 type Handler interface {
 	GetURL(ctx context.Context, c *gin.Context)
 	GetShortURL(ctx context.Context, c *gin.Context, baseURL string)
-	CheckDbConnection(ctx context.Context, c *gin.Context)
+	CheckDBConnection(ctx context.Context, c *gin.Context)
 }
 
 type RestAPIHandler interface {
@@ -33,11 +33,11 @@ type ShortURLData struct {
 
 type ListURLItem struct {
 	URL           string `json:"original_url"`
-	CorrelationId string `json:"correlation_id"`
+	CorrelationID string `json:"correlation_id"`
 }
 
 type ListShortURLItem struct {
-	CorrelationId string `json:"correlation_id"`
+	CorrelationID string `json:"correlation_id"`
 	ShortURL      string `json:"short_url"`
 }
 
@@ -130,7 +130,7 @@ func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, base
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
-		urlsMap[u.CorrelationId] = u.URL
+		urlsMap[u.CorrelationID] = u.URL
 	}
 
 	shortURLsMap, err := h.service.ListShortURL(ctx, urlsMap)
@@ -139,10 +139,10 @@ func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, base
 		return
 	}
 	responseData := make([]ListShortURLItem, 0, len(shortURLsMap))
-	for correlationId, v := range shortURLsMap {
-		short := (fmt.Sprintf("%s/%s", baseURL, v))
+	for correlationID, shortURL := range shortURLsMap {
+		short := (fmt.Sprintf("%s/%s", baseURL, shortURL))
 		responseData = append(responseData, ListShortURLItem{
-			CorrelationId: correlationId,
+			CorrelationID: correlationID,
 			ShortURL:      short,
 		})
 	}
@@ -178,7 +178,7 @@ func (h *handler) GetShortURL(ctx context.Context, c *gin.Context, baseURL strin
 	c.Data(http.StatusCreated, "text/plain", response)
 }
 
-func (h *handler) CheckDbConnection(ctx context.Context, c *gin.Context) {
+func (h *handler) CheckDBConnection(ctx context.Context, c *gin.Context) {
 	if err := h.dbConn.PingContext(ctx); err != nil {
 		c.Status(http.StatusInternalServerError)
 	}

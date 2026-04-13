@@ -156,6 +156,7 @@ func Test_restAPIHandler_GetShortURL(t *testing.T) {
 				require.NoError(t, err)
 				var shortURLData ShortURLData
 				err = json.Unmarshal(resBody, &shortURLData)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -215,6 +216,7 @@ func Test_handler_GetURL(t *testing.T) {
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, request)
 			res := w.Result()
+			defer res.Body.Close()
 
 			require.NoError(t, err)
 			assert.Equal(t, test.want.location, res.Header.Get("Location"))
@@ -231,7 +233,7 @@ func setupRouter() *gin.Engine {
 	}
 	shortenerService := service.NewShortenerService(repo)
 	h := NewHandler(shortenerService, nil)
-	restApiHandler := NewRestAPIHandler(shortenerService)
+	restAPIHandler := NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
 	r.POST("/", func(c *gin.Context) {
@@ -241,7 +243,7 @@ func setupRouter() *gin.Engine {
 		h.GetURL(ctx, c)
 	})
 	r.POST("/api/shorten", func(c *gin.Context) {
-		restApiHandler.GetShortURL(ctx, c, baseURL)
+		restAPIHandler.GetShortURL(ctx, c, baseURL)
 	})
 
 	return r

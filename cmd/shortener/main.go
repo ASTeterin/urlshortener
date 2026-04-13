@@ -50,7 +50,7 @@ func main() {
 		restAPIHandler.GetShortURL(ctx, c, config.ResultBaseURL)
 	})
 	r.GET("/ping", func(c *gin.Context) {
-		h.CheckDbConnection(ctx, c)
+		h.CheckDBConnection(ctx, c)
 	})
 	r.POST("/api/shorten/batch", func(c *gin.Context) {
 		restAPIHandler.ListShortURLs(ctx, c, config.ResultBaseURL)
