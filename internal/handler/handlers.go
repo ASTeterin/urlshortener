@@ -46,7 +46,7 @@ type handler struct {
 	dbConn  *sql.DB
 }
 
-type restApiHandler struct {
+type restAPIHandler struct {
 	service service.ShortenerService
 }
 
@@ -57,8 +57,8 @@ func NewHandler(service service.ShortenerService, dbConn *sql.DB) Handler {
 	}
 }
 
-func NewRestApiHandler(service service.ShortenerService) RestAPIHandler {
-	return &restApiHandler{
+func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
+	return &restAPIHandler{
 		service: service,
 	}
 }
@@ -76,7 +76,7 @@ func (h *handler) GetURL(ctx context.Context, c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, *originalUrl)
 }
 
-func (h *restApiHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUrl string) {
+func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUrl string) {
 	var urlData URLData
 	err := c.BindJSON(&urlData)
 	if err != nil {
@@ -111,7 +111,7 @@ func (h *restApiHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUr
 	c.Data(http.StatusCreated, "application/json", response)
 }
 
-func (h *restApiHandler) ListShortURLs(ctx context.Context, c *gin.Context, baseUrl string) {
+func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, baseUrl string) {
 	var urls []ListUrlItem
 	err := c.BindJSON(&urls)
 	if err != nil {

@@ -84,7 +84,7 @@ func Test_handler_GetShortURL(t *testing.T) {
 	}
 }
 
-func Test_restApiHandler_GetShortURL(t *testing.T) {
+func Test_restAPIHandler_GetShortURL(t *testing.T) {
 	router := setupRouter()
 
 	type want struct {
@@ -229,7 +229,7 @@ func setupRouter() *gin.Engine {
 	}
 	shortenerService := service.NewShortenerService(repo)
 	h := NewHandler(shortenerService)
-	restApiHandler := NewRestApiHandler(shortenerService)
+	restApiHandler := NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
 	r.POST("/", func(c *gin.Context) {

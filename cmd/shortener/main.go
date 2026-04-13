@@ -33,7 +33,7 @@ func main() {
 	}
 	shortenerService := service.NewShortenerService(repo)
 	h := handler.NewHandler(shortenerService, dbConn)
-	restApiHandler := handler.NewRestApiHandler(shortenerService)
+	restAPIHandler := handler.NewRestAPIHandler(shortenerService)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -47,13 +47,13 @@ func main() {
 		h.GetURL(ctx, c)
 	})
 	r.POST("/api/shorten", func(c *gin.Context) {
-		restApiHandler.GetShortURL(ctx, c, config.ResultBaseURL)
+		restAPIHandler.GetShortURL(ctx, c, config.ResultBaseURL)
 	})
 	r.GET("/ping", func(c *gin.Context) {
 		h.CheckDbConnection(ctx, c)
 	})
 	r.POST("/api/shorten/batch", func(c *gin.Context) {
-		restApiHandler.ListShortURLs(ctx, c, config.ResultBaseURL)
+		restAPIHandler.ListShortURLs(ctx, c, config.ResultBaseURL)
 	})
 
 	if err := r.Run(config.AppAddr); err != nil {
