@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"math/rand"
 	"time"
 
@@ -39,17 +41,6 @@ func (repo *URLRepository) Generate(ctx context.Context) string {
 }
 
 func (repo *URLRepository) Store(ctx context.Context, url model.URL) (*string, error) {
-	const checkQuery = `
-        SELECT short_url FROM urls 
-        WHERE original_url = $1
-    `
-
-	var existingShortURL string
-	err := repo.db.QueryRowContext(ctx, checkQuery, url.Original).Scan(&existingShortURL)
-	if err == nil {
-		return &existingShortURL, model.ErrDuplicateURL
-	}
-
 	const query = `
         INSERT INTO urls (short_url, original_url)
         VALUES ($1, $2)
@@ -58,7 +49,19 @@ func (repo *URLRepository) Store(ctx context.Context, url model.URL) (*string, e
     `
 
 	var shortURL string
-	err = repo.db.QueryRowContext(ctx, query, url.Short, url.Original).Scan(&shortURL)
+	err := repo.db.QueryRowContext(ctx, query, url.Short, url.Original).Scan(&shortURL)
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
+		const checkQuery = `SELECT short_url FROM urls WHERE original_url = $1`
+		var existingShortURL string
+		err2 := repo.db.QueryRowContext(ctx, checkQuery, url.Original).Scan(&existingShortURL)
+
+		if err2 == nil {
+			return &existingShortURL, model.ErrDuplicateURL
+		}
+		return nil, err
+	}
 
 	return &shortURL, nil
 }

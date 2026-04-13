@@ -46,6 +46,16 @@ func Test_handler_GetShortURL(t *testing.T) {
 			},
 		},
 		{
+			name:   "positive test duplicate url",
+			method: "POST",
+			body:   "http://yandex.ru",
+			want: want{
+				code:        409,
+				contentType: "text/plain",
+				bodyLen:     30,
+			},
+		},
+		{
 			name:   "test empty request",
 			method: "POST",
 			body:   "",
@@ -109,6 +119,18 @@ func Test_restAPIHandler_GetShortURL(t *testing.T) {
 			},
 			want: want{
 				code:        201,
+				contentType: "application/json",
+				hasError:    false,
+			},
+		},
+		{
+			name:   "positive test duplicate url",
+			method: "POST",
+			body: URLData{
+				URL: "http://yandex.ru",
+			},
+			want: want{
+				code:        409,
 				contentType: "application/json",
 				hasError:    false,
 			},
