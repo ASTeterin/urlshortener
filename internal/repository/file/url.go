@@ -12,16 +12,16 @@ import (
 )
 
 type urlRepository struct {
-	storage  map[string]model.Url
+	storage  map[string]model.URL
 	filePath string
 	uuid     int
 	mu       sync.RWMutex
 }
 
-func NewUrlRepository(filePath string) (model.ShortenerRepository, error) {
+func NewURLRepository(filePath string) (model.ShortenerRepository, error) {
 	repo := &urlRepository{
 		filePath: filePath,
-		storage:  make(map[string]model.Url),
+		storage:  make(map[string]model.URL),
 	}
 	if err := repo.load(); err != nil {
 		if os.IsNotExist(err) {
@@ -38,7 +38,7 @@ func NewUrlRepository(filePath string) (model.ShortenerRepository, error) {
 func (repo *urlRepository) Generate(_ context.Context) string {
 	rand.Seed(time.Now().UnixNano())
 	for {
-		b := make([]byte, model.ShortUrlLen)
+		b := make([]byte, model.ShortURLLen)
 		for i := range b {
 			b[i] = model.Letters[rand.Intn(len(model.Letters))]
 		}
@@ -49,15 +49,15 @@ func (repo *urlRepository) Generate(_ context.Context) string {
 	}
 }
 
-func (repo *urlRepository) Store(_ context.Context, url model.Url) error {
-	url.Uuid = repo.nextUuid()
+func (repo *urlRepository) Store(_ context.Context, url model.URL) error {
+	url.UUID = repo.nextUUID()
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	repo.storage[url.Short] = url
 	return repo.save()
 }
 
-func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.Url) error {
+func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.URL) error {
 	for _, url := range urls {
 		if err := repo.Store(ctx, url); err != nil {
 			return err
@@ -66,22 +66,22 @@ func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.Url) error
 	return nil
 }
 
-func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.Url, error) {
+func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.URL, error) {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()
 	url, ok := repo.storage[short]
 	if !ok {
-		return model.Url{}, model.ErrUrlNotFound
+		return model.URL{}, model.ErrURLNotFound
 	}
 	return url, nil
 }
 
-func (repo *urlRepository) nextUuid() int {
+func (repo *urlRepository) nextUUID() int {
 	return repo.uuid + 1
 }
 
 func (repo *urlRepository) save() error {
-	var values []model.Url
+	var values []model.URL
 	for _, v := range repo.storage {
 		values = append(values, v)
 	}
@@ -99,21 +99,21 @@ func (repo *urlRepository) load() error {
 		return err
 	}
 
-	storedData := make([]model.Url, 0)
+	storedData := make([]model.URL, 0)
 	err = json.Unmarshal(data, &storedData)
 	if err != nil {
 		return err
 	}
-	var maxUuid int
-	urlToShortUrlMap := make(map[string]model.Url)
+	var maxUUID int
+	urlToShortURLMap := make(map[string]model.URL)
 	for _, v := range storedData {
-		urlToShortUrlMap[v.Short] = v
-		if v.Uuid > maxUuid {
-			maxUuid = v.Uuid
+		urlToShortURLMap[v.Short] = v
+		if v.UUID > maxUUID {
+			maxUUID = v.UUID
 		}
 	}
 
-	repo.uuid = maxUuid
-	repo.storage = urlToShortUrlMap
+	repo.uuid = maxUUID
+	repo.storage = urlToShortURLMap
 	return nil
 }

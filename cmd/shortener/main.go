@@ -18,18 +18,18 @@ import (
 
 func main() {
 	config := appConfig.ParseFlags()
-	repo, err := file.NewUrlRepository(config.FilePath)
+	repo, err := file.NewURLRepository(config.FilePath)
 	if err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
 	var dbConn *sql.DB
-	if config.DbConnStr != "" {
-		dbConn, err = sql.Open("pgx", config.DbConnStr)
+	if config.DBConnStr != "" {
+		dbConn, err = sql.Open("pgx", config.DBConnStr)
 		if err != nil {
 			log.Fatalf("failed to connect to database: %v", err)
 		}
 		defer dbConn.Close()
-		repo = dbrepo.NewUrlRepository(dbConn)
+		repo = dbrepo.NewURLRepository(dbConn)
 	}
 	shortenerService := service.NewShortenerService(repo)
 	h := handler.NewHandler(shortenerService, dbConn)
@@ -41,19 +41,19 @@ func main() {
 	r := gin.Default()
 	r.Use(logger.RequestLogger(), compress.RequestEncoder())
 	r.POST("/", func(c *gin.Context) {
-		h.GetShortURL(ctx, c, config.ResultBaseUrl)
+		h.GetShortURL(ctx, c, config.ResultBaseURL)
 	})
 	r.GET("/:id", func(c *gin.Context) {
 		h.GetURL(ctx, c)
 	})
 	r.POST("/api/shorten", func(c *gin.Context) {
-		restApiHandler.GetShortURL(ctx, c, config.ResultBaseUrl)
+		restApiHandler.GetShortURL(ctx, c, config.ResultBaseURL)
 	})
 	r.GET("/ping", func(c *gin.Context) {
 		h.CheckDbConnection(ctx, c)
 	})
 	r.POST("/api/shorten/batch", func(c *gin.Context) {
-		restApiHandler.ListShortURLs(ctx, c, config.ResultBaseUrl)
+		restApiHandler.ListShortURLs(ctx, c, config.ResultBaseURL)
 	})
 
 	if err := r.Run(config.AppAddr); err != nil {

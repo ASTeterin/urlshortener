@@ -10,54 +10,54 @@ import (
 	"github.com/ASTeterin/urlshortener/internal/model"
 )
 
-type UrlRepository struct {
+type URLRepository struct {
 	db *sql.DB
 }
 
-func NewUrlRepository(db *sql.DB) *UrlRepository {
-	repo := &UrlRepository{
+func NewURLRepository(db *sql.DB) *URLRepository {
+	repo := &URLRepository{
 		db: db,
 	}
 	return repo
 }
 
-func (repo *UrlRepository) Generate(ctx context.Context) string {
+func (repo *URLRepository) Generate(ctx context.Context) string {
 	rand.Seed(time.Now().UnixNano())
 	for {
-		b := make([]byte, model.ShortUrlLen)
+		b := make([]byte, model.ShortURLLen)
 		for i := range b {
 			b[i] = model.Letters[rand.Intn(len(model.Letters))]
 		}
 		value := string(b)
 		_, err := repo.GetByShort(ctx, value)
 		if err != nil {
-			if errors.Is(err, model.ErrUrlNotFound) {
+			if errors.Is(err, model.ErrURLNotFound) {
 				return value
 			}
 		}
 	}
 }
 
-func (repo *UrlRepository) Store(ctx context.Context, url model.Url) error {
+func (repo *URLRepository) Store(ctx context.Context, url model.URL) error {
 	query := `INSERT INTO urls(short_url, original_url) VALUES ($1, $2)`
 
 	res, err := repo.db.ExecContext(ctx, query, url.Short, url.Original)
 	if err != nil {
-		return model.ErrUrlNotStored
+		return model.ErrURLNotStored
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return model.ErrUrlNotStored
+		return model.ErrURLNotStored
 	}
 
 	if rowsAffected == 0 {
-		return model.ErrUrlNotStored
+		return model.ErrURLNotStored
 	}
 	return nil
 }
 
-func (repo *UrlRepository) StoreAll(ctx context.Context, urls []model.Url) error {
+func (repo *URLRepository) StoreAll(ctx context.Context, urls []model.URL) error {
 	tx, err := repo.db.Begin()
 	if err != nil {
 		return err
@@ -74,13 +74,13 @@ func (repo *UrlRepository) StoreAll(ctx context.Context, urls []model.Url) error
 
 }
 
-func (repo *UrlRepository) GetByShort(ctx context.Context, short string) (model.Url, error) {
+func (repo *URLRepository) GetByShort(ctx context.Context, short string) (model.URL, error) {
 	query := `SELECT id, short_url, original_url FROM urls WHERE short_url = $1`
-	url := model.Url{}
+	url := model.URL{}
 	err := repo.db.QueryRowContext(ctx, query, short).Scan(
-		&url.Uuid, &url.Short, &url.Original)
+		&url.UUID, &url.Short, &url.Original)
 	if errors.Is(err, sql.ErrNoRows) {
-		return model.Url{}, model.ErrUrlNotFound
+		return model.URL{}, model.ErrURLNotFound
 	}
 	return url, err
 }

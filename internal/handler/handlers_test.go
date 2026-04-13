@@ -97,13 +97,13 @@ func Test_restApiHandler_GetShortURL(t *testing.T) {
 	tests := []struct {
 		name   string
 		method string
-		body   UrlData
+		body   URLData
 		want   want
 	}{
 		{
 			name:   "positive test",
 			method: "POST",
-			body: UrlData{
+			body: URLData{
 				URL: "http://yandex.ru",
 			},
 			want: want{
@@ -115,7 +115,7 @@ func Test_restApiHandler_GetShortURL(t *testing.T) {
 		{
 			name:   "test empty request",
 			method: "POST",
-			body: UrlData{
+			body: URLData{
 				URL: "",
 			},
 			want: want{
@@ -127,7 +127,7 @@ func Test_restApiHandler_GetShortURL(t *testing.T) {
 		{
 			name:   "test invalid URL in request",
 			method: "POST",
-			body: UrlData{
+			body: URLData{
 				URL: "123",
 			},
 			want: want{
@@ -223,7 +223,7 @@ func Test_handler_GetURL(t *testing.T) {
 }
 
 func setupRouter() *gin.Engine {
-	repo, err := file.NewUrlRepository("test")
+	repo, err := file.NewURLRepository("test")
 	if err != nil {
 		panic(err)
 	}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/repository/file"
 	"reflect"
@@ -10,15 +11,16 @@ import (
 func Test_shortenerService_GetOriginalUrl(t *testing.T) {
 	const shortUrl = "qWeRtYuI"
 	var originalUrl = "http://google.com"
-	repo, err := file.NewUrlRepository("test")
+	ctx := context.Background()
+	repo, err := file.NewURLRepository("test")
 	if err != nil {
 		return
 	}
-	url := model.Url{
+	url := model.URL{
 		Short:    shortUrl,
 		Original: originalUrl,
 	}
-	err = repo.Store(url)
+	err = repo.Store(ctx, url)
 	if err != nil {
 		return
 	}
@@ -42,7 +44,7 @@ func Test_shortenerService_GetOriginalUrl(t *testing.T) {
 			shortUrl: "123",
 			want:     nil,
 			wantErr:  true,
-			error:    model.ErrUrlNotFound,
+			error:    model.ErrURLNotFound,
 		},
 	}
 	for _, tt := range tests {
@@ -50,7 +52,7 @@ func Test_shortenerService_GetOriginalUrl(t *testing.T) {
 			s := &shortenerService{
 				repo: repo,
 			}
-			got, err := s.GetOriginalUrl(tt.shortUrl)
+			got, err := s.GetOriginalUrl(ctx, tt.shortUrl)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetOriginalUrl() error = %v, wantErr %v", err, tt.wantErr)
 				return

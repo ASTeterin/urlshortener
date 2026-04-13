@@ -6,24 +6,24 @@ import (
 )
 
 var (
-	ErrUrlNotFound  = errors.New("url not found")
-	ErrUrlNotStored = errors.New("url not stored")
+	ErrURLNotFound  = errors.New("url not found")
+	ErrURLNotStored = errors.New("url not stored")
 )
 
 const (
-	ShortUrlLen = 8
+	ShortURLLen = 8
 	Letters     = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 
-type Url struct {
-	Uuid     int    `json:"uuid" db:"id"`
+type URL struct {
+	UUID     int    `json:"uuid" db:"id"`
 	Short    string `json:"short" db:"short_url"`
 	Original string `json:"original_url" db:"original_url"`
 }
 
 type ShortenerRepository interface {
-	Store(ctx context.Context, url Url) error
-	GetByShort(ctx context.Context, short string) (Url, error)
+	Store(ctx context.Context, url URL) error
+	GetByShort(ctx context.Context, short string) (URL, error)
 	Generate(ctx context.Context) string
-	StoreAll(ctx context.Context, urls []Url) error
+	StoreAll(ctx context.Context, urls []URL) error
 }

@@ -18,12 +18,12 @@ type Handler interface {
 	CheckDbConnection(ctx context.Context, c *gin.Context)
 }
 
-type RestApiHandler interface {
+type RestAPIHandler interface {
 	GetShortURL(ctx context.Context, c *gin.Context, baseUrl string)
 	ListShortURLs(ctx context.Context, c *gin.Context, baseUrl string)
 }
 
-type UrlData struct {
+type URLData struct {
 	URL string `json:"url"`
 }
 
@@ -38,7 +38,7 @@ type ListUrlItem struct {
 
 type ListShortUrlItem struct {
 	CorrelationId string `json:"correlation_id"`
-	ShortUrl      string `json:"short_url"`
+	ShortURL      string `json:"short_url"`
 }
 
 type handler struct {
@@ -57,7 +57,7 @@ func NewHandler(service service.ShortenerService, dbConn *sql.DB) Handler {
 	}
 }
 
-func NewRestApiHandler(service service.ShortenerService) RestApiHandler {
+func NewRestApiHandler(service service.ShortenerService) RestAPIHandler {
 	return &restApiHandler{
 		service: service,
 	}
@@ -77,7 +77,7 @@ func (h *handler) GetURL(ctx context.Context, c *gin.Context) {
 }
 
 func (h *restApiHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUrl string) {
-	var urlData UrlData
+	var urlData URLData
 	err := c.BindJSON(&urlData)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
@@ -143,7 +143,7 @@ func (h *restApiHandler) ListShortURLs(ctx context.Context, c *gin.Context, base
 		short := (fmt.Sprintf("%s/%s", baseUrl, v))
 		responseData = append(responseData, ListShortUrlItem{
 			CorrelationId: correlationId,
-			ShortUrl:      short,
+			ShortURL:      short,
 		})
 	}
 	response, err := json.Marshal(responseData)

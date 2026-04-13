@@ -23,7 +23,7 @@ type shortenerService struct {
 
 func (s *shortenerService) GetShortUrl(ctx context.Context, originalURL string) (*string, error) {
 	short := s.repo.Generate(ctx)
-	url := model.Url{
+	url := model.URL{
 		Short:    short,
 		Original: originalURL,
 	}
@@ -36,10 +36,10 @@ func (s *shortenerService) GetShortUrl(ctx context.Context, originalURL string) 
 
 func (s *shortenerService) ListShortUrl(ctx context.Context, originalURLsMap map[string]string) (map[string]string, error) {
 	result := make(map[string]string)
-	urls := make([]model.Url, 0, len(originalURLsMap))
+	urls := make([]model.URL, 0, len(originalURLsMap))
 	for k, v := range originalURLsMap {
 		short := s.repo.Generate(ctx)
-		url := model.Url{
+		url := model.URL{
 			Short:    short,
 			Original: v,
 		}
