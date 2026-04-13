@@ -38,23 +38,29 @@ func (repo *URLRepository) Generate(ctx context.Context) string {
 	}
 }
 
-func (repo *URLRepository) Store(ctx context.Context, url model.URL) error {
-	query := `INSERT INTO urls(short_url, original_url) VALUES ($1, $2)`
+func (repo *URLRepository) Store(ctx context.Context, url model.URL) (*string, error) {
+	const checkQuery = `
+        SELECT short_url FROM urls 
+        WHERE original_url = $1
+    `
 
-	res, err := repo.db.ExecContext(ctx, query, url.Short, url.Original)
-	if err != nil {
-		return model.ErrURLNotStored
+	var existingShortURL string
+	err := repo.db.QueryRowContext(ctx, checkQuery, url.Original).Scan(&existingShortURL)
+	if err == nil {
+		return &existingShortURL, model.ErrDuplicateURL
 	}
 
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return model.ErrURLNotStored
-	}
+	const query = `
+        INSERT INTO urls (short_url, original_url)
+        VALUES ($1, $2)
+        ON CONFLICT (short_url) DO NOTHING
+        RETURNING short_url
+    `
 
-	if rowsAffected == 0 {
-		return model.ErrURLNotStored
-	}
-	return nil
+	var shortURL string
+	err = repo.db.QueryRowContext(ctx, query, url.Short, url.Original).Scan(&shortURL)
+
+	return &shortURL, nil
 }
 
 func (repo *URLRepository) StoreAll(ctx context.Context, urls []model.URL) error {

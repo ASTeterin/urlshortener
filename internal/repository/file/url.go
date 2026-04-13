@@ -48,17 +48,17 @@ func (repo *urlRepository) Generate(_ context.Context) string {
 	}
 }
 
-func (repo *urlRepository) Store(_ context.Context, url model.URL) error {
+func (repo *urlRepository) Store(_ context.Context, url model.URL) (*string, error) {
 	url.UUID = repo.nextUUID()
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	repo.storage[url.Short] = url
-	return repo.save()
+	return &url.Short, repo.save()
 }
 
 func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.URL) error {
 	for _, url := range urls {
-		if err := repo.Store(ctx, url); err != nil {
+		if _, err := repo.Store(ctx, url); err != nil {
 			return err
 		}
 	}

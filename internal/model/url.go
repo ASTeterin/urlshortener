@@ -7,7 +7,7 @@ import (
 
 var (
 	ErrURLNotFound  = errors.New("url not found")
-	ErrURLNotStored = errors.New("url not stored")
+	ErrDuplicateURL = errors.New("duplicate url")
 )
 
 const (
@@ -22,7 +22,7 @@ type URL struct {
 }
 
 type ShortenerRepository interface {
-	Store(ctx context.Context, url URL) error
+	Store(ctx context.Context, url URL) (*string, error)
 	GetByShort(ctx context.Context, short string) (URL, error)
 	Generate(ctx context.Context) string
 	StoreAll(ctx context.Context, urls []URL) error

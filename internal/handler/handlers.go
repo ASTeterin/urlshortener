@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -67,7 +69,7 @@ func (h *handler) GetURL(ctx context.Context, c *gin.Context) {
 	shortURL := c.Param("id")
 	originalURL, err := h.service.GetOriginalURL(ctx, shortURL)
 	if err != nil || originalURL == nil {
-		c.AbortWithStatus(400)
+		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
@@ -97,18 +99,14 @@ func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUR
 
 	shortURL, err := h.service.GetShortURL(ctx, originalURL)
 	if err != nil {
+		if errors.Is(err, model.ErrDuplicateURL) {
+			returnResponseWithStatus(c, http.StatusConflict, baseURL, *shortURL)
+			return
+		}
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	short := (fmt.Sprintf("%s/%s", baseURL, *shortURL))
-	var responseData ShortURLData
-	responseData.ShortURL = short
-	response, err := json.Marshal(responseData)
-	if err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	c.Data(http.StatusCreated, "application/json", response)
+	returnResponseWithStatus(c, http.StatusCreated, baseURL, *shortURL)
 }
 
 func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, baseURL string) {
@@ -170,11 +168,15 @@ func (h *handler) GetShortURL(ctx context.Context, c *gin.Context, baseURL strin
 
 	short, err := h.service.GetShortURL(ctx, originalURL)
 	if err != nil {
+		if errors.Is(err, model.ErrDuplicateURL) {
+			response := []byte(fmt.Sprintf("%s/%s", baseURL, *short))
+			c.Data(http.StatusConflict, "text/plain", response)
+			return
+		}
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 	response := []byte(fmt.Sprintf("%s/%s", baseURL, *short))
-
 	c.Data(http.StatusCreated, "text/plain", response)
 }
 
@@ -184,4 +186,16 @@ func (h *handler) CheckDBConnection(ctx context.Context, c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func returnResponseWithStatus(c *gin.Context, status int, baseURL, shortURL string) {
+	short := (fmt.Sprintf("%s/%s", baseURL, shortURL))
+	var responseData ShortURLData
+	responseData.ShortURL = short
+	response, err := json.Marshal(responseData)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Data(status, "application/json", response)
 }

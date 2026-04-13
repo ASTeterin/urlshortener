@@ -27,11 +27,7 @@ func (s *shortenerService) GetShortURL(ctx context.Context, originalURL string) 
 		Short:    short,
 		Original: originalURL,
 	}
-	err := s.repo.Store(ctx, url)
-	if err != nil {
-		return nil, err
-	}
-	return &url.Short, nil
+	return s.repo.Store(ctx, url)
 }
 
 func (s *shortenerService) ListShortURL(ctx context.Context, originalURLsMap map[string]string) (map[string]string, error) {
