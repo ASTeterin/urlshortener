@@ -20,7 +20,7 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 		Short:    shortURL,
 		Original: originalURL,
 	}
-	err = repo.Store(ctx, url)
+	_, err = repo.Store(ctx, url)
 	if err != nil {
 		return
 	}
