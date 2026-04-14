@@ -20,7 +20,7 @@ func ParseFlags() Config {
 	flag.StringVar(&appAddr, "a", ":8080", "port to run server")
 	flag.StringVar(&resultBaseURL, "b", "http://localhost:8080", "base url for short url")
 	flag.StringVar(&fileStoragePath, "f", "filestorage.txt", "file storage path")
-	flag.StringVar(&dbConnectionString, "d", "host=localhost user=myadmin password=123456 dbname=urlshortener sslmode=disable", "")
+	flag.StringVar(&dbConnectionString, "d", "", "")
 	flag.Parse()
 
 	if envAppAddr := os.Getenv("SERVER_ADDRESS"); envAppAddr != "" {
