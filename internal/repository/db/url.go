@@ -53,10 +53,7 @@ func (repo *URLRepository) Store(ctx context.Context, url model.URL) (*string, e
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-		const checkQuery = `SELECT short_url FROM urls WHERE original_url = $1`
-		var existingShortURL string
-		err2 := repo.db.QueryRowContext(ctx, checkQuery, url.Original).Scan(&existingShortURL)
-
+		existingShortURL, err2 := repo.getStoredShortURL(ctx, url.Original)
 		if err2 == nil {
 			return &existingShortURL, model.ErrDuplicateURL
 		}
@@ -66,20 +63,39 @@ func (repo *URLRepository) Store(ctx context.Context, url model.URL) (*string, e
 	return &shortURL, nil
 }
 
-func (repo *URLRepository) StoreAll(ctx context.Context, urls []model.URL) error {
+func (repo *URLRepository) StoreAll(ctx context.Context, urls []model.URL) ([]model.URL, error) {
+	var result []model.URL
 	tx, err := repo.db.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	query := `INSERT INTO urls(short_url, original_url) VALUES ($1, $2)`
+	query := `INSERT INTO urls(short_url, original_url) VALUES ($1, $2) ON CONFLICT (short_url) DO NOTHING RETURNING short_url`
 	for _, url := range urls {
-		_, err = tx.ExecContext(ctx, query, url.Short, url.Original)
+		var shortURL string
+		err = tx.QueryRowContext(ctx, query, url.Short, url.Original).Scan(&shortURL)
+
+		var pgErr *pgconn.PgError
 		if err != nil {
+			if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
+				existingShortURL, err2 := repo.getStoredShortURL(ctx, url.Original)
+				if err2 != nil {
+					return nil, err2
+				}
+				result = append(result, model.URL{
+					Short:    existingShortURL,
+					Original: url.Original,
+				})
+				continue
+			}
 			tx.Rollback()
-			return err
+			return nil, err
 		}
+		result = append(result, model.URL{
+			Short:    shortURL,
+			Original: url.Original,
+		})
 	}
-	return tx.Commit()
+	return result, tx.Commit()
 }
 
 func (repo *URLRepository) GetByShort(ctx context.Context, short string) (model.URL, error) {
@@ -97,4 +113,11 @@ func (repo *URLRepository) ClearAll(ctx context.Context) error {
 	query := `DELETE FROM urls`
 	_, err := repo.db.ExecContext(ctx, query)
 	return err
+}
+
+func (repo *URLRepository) getStoredShortURL(ctx context.Context, originalURL string) (string, error) {
+	const checkQuery = `SELECT short_url FROM urls WHERE original_url = $1`
+	var existingShortURL string
+	err := repo.db.QueryRowContext(ctx, checkQuery, originalURL).Scan(&existingShortURL)
+	return existingShortURL, err
 }

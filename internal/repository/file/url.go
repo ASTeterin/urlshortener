@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math/rand"
 	"os"
 	"sync"
@@ -64,13 +65,19 @@ func (repo *urlRepository) Store(_ context.Context, url model.URL) (*string, err
 	return &url.Short, repo.save()
 }
 
-func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.URL) error {
+func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.URL) ([]model.URL, error) {
+	var result []model.URL
 	for _, url := range urls {
-		if _, err := repo.Store(ctx, url); err != nil {
-			return err
+		shortURL, err := repo.Store(ctx, url)
+		if err != nil && !errors.Is(err, model.ErrDuplicateURL) {
+			return nil, err
 		}
+		result = append(result, model.URL{
+			Short:    *shortURL,
+			Original: url.Original,
+		})
 	}
-	return nil
+	return result, nil
 }
 
 func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.URL, error) {

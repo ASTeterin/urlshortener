@@ -8,11 +8,16 @@ import (
 	"testing"
 )
 
+const shortURL = "qWeRtYuI"
+
 func Test_shortenerService_GetOriginalURL(t *testing.T) {
-	const shortURL = "qWeRtYuI"
 	var originalURL = "http://google.com"
 	ctx := context.Background()
 	repo, err := file.NewURLRepository("test")
+	if err != nil {
+		return
+	}
+	err = repo.ClearAll(ctx)
 	if err != nil {
 		return
 	}
@@ -59,6 +64,96 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetOriginalURL() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_shortenerService_GetShortURL(t *testing.T) {
+	var originalURL = "http://google.com"
+	ctx := context.Background()
+	repo, err := file.NewURLRepository("test")
+	if err != nil {
+		return
+	}
+	err = repo.ClearAll(ctx)
+	if err != nil {
+		return
+	}
+	tests := []struct {
+		name        string
+		originalURL string
+		wantErr     bool
+		error       error
+	}{
+		{
+			name:        "positive test",
+			originalURL: originalURL,
+			wantErr:     false,
+			error:       nil,
+		},
+		{
+			name:        "duplicate original url",
+			originalURL: originalURL,
+			wantErr:     true,
+			error:       model.ErrDuplicateURL,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &shortenerService{
+				repo: repo,
+			}
+			_, err := s.GetShortURL(ctx, originalURL)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetShortURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
+
+func Test_shortenerService_ListShortURL(t *testing.T) {
+	var originalURL1 = "http://google.com"
+	var originalURL2 = "http://yandex.ru"
+	var originalURL3 = "http://test.ru"
+	ctx := context.Background()
+	repo, err := file.NewURLRepository("test")
+	if err != nil {
+		return
+	}
+	err = repo.ClearAll(ctx)
+	if err != nil {
+		return
+	}
+	tests := []struct {
+		name            string
+		originalURLsMap map[string]string
+		wantErr         bool
+		error           error
+	}{
+		{
+			name:            "positive test",
+			originalURLsMap: map[string]string{"uuid1": originalURL1, "uuid2": originalURL2},
+			wantErr:         false,
+			error:           nil,
+		},
+		{
+			name:            "duplicate original urls",
+			originalURLsMap: map[string]string{"uuid1": originalURL1, "uuid3": originalURL3},
+			wantErr:         false,
+			error:           nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &shortenerService{
+				repo: repo,
+			}
+			_, err := s.ListShortURL(ctx, tt.originalURLsMap)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ListShortURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 		})
 	}
