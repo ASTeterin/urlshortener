@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -15,14 +14,14 @@ import (
 )
 
 type Handler interface {
-	GetURL(ctx context.Context, c *gin.Context)
-	GetShortURL(ctx context.Context, c *gin.Context, baseURL string)
-	CheckDBConnection(ctx context.Context, c *gin.Context)
+	GetURL(c *gin.Context)
+	GetShortURL(c *gin.Context, baseURL string)
+	CheckDBConnection(c *gin.Context)
 }
 
 type RestAPIHandler interface {
-	GetShortURL(ctx context.Context, c *gin.Context, baseURL string)
-	ListShortURLs(ctx context.Context, c *gin.Context, baseURL string)
+	GetShortURL(c *gin.Context, baseURL string)
+	ListShortURLs(c *gin.Context, baseURL string)
 }
 
 type URLData struct {
@@ -65,9 +64,9 @@ func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
 	}
 }
 
-func (h *handler) GetURL(ctx context.Context, c *gin.Context) {
+func (h *handler) GetURL(c *gin.Context) {
 	shortURL := c.Param("id")
-	originalURL, err := h.service.GetOriginalURL(ctx, shortURL)
+	originalURL, err := h.service.GetOriginalURL(shortURL)
 	if err != nil || originalURL == nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -78,7 +77,7 @@ func (h *handler) GetURL(ctx context.Context, c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, *originalURL)
 }
 
-func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseURL string) {
+func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
 	var urlData URLData
 	err := c.BindJSON(&urlData)
 	if err != nil {
@@ -97,7 +96,7 @@ func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUR
 		return
 	}
 
-	shortURL, err := h.service.GetShortURL(ctx, originalURL)
+	shortURL, err := h.service.GetShortURL(originalURL)
 	if err != nil {
 		if errors.Is(err, model.ErrDuplicateURL) {
 			returnResponseWithStatus(c, http.StatusConflict, baseURL, *shortURL)
@@ -109,7 +108,7 @@ func (h *restAPIHandler) GetShortURL(ctx context.Context, c *gin.Context, baseUR
 	returnResponseWithStatus(c, http.StatusCreated, baseURL, *shortURL)
 }
 
-func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, baseURL string) {
+func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
 	var urls []ListURLItem
 	err := c.BindJSON(&urls)
 	if err != nil {
@@ -131,7 +130,7 @@ func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, base
 		urlsMap[u.CorrelationID] = u.URL
 	}
 
-	shortURLsMap, err := h.service.ListShortURL(ctx, urlsMap)
+	shortURLsMap, err := h.service.ListShortURL(urlsMap)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -152,7 +151,7 @@ func (h *restAPIHandler) ListShortURLs(ctx context.Context, c *gin.Context, base
 	c.Data(http.StatusCreated, "application/json", response)
 }
 
-func (h *handler) GetShortURL(ctx context.Context, c *gin.Context, baseURL string) {
+func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 	var originalURL string
 	err := c.BindPlain(&originalURL)
 	if err != nil || originalURL == "" {
@@ -166,7 +165,7 @@ func (h *handler) GetShortURL(ctx context.Context, c *gin.Context, baseURL strin
 		return
 	}
 
-	short, err := h.service.GetShortURL(ctx, originalURL)
+	short, err := h.service.GetShortURL(originalURL)
 	if err != nil {
 		if errors.Is(err, model.ErrDuplicateURL) {
 			response := []byte(fmt.Sprintf("%s/%s", baseURL, *short))
@@ -180,8 +179,8 @@ func (h *handler) GetShortURL(ctx context.Context, c *gin.Context, baseURL strin
 	c.Data(http.StatusCreated, "text/plain", response)
 }
 
-func (h *handler) CheckDBConnection(ctx context.Context, c *gin.Context) {
-	if err := h.dbConn.PingContext(ctx); err != nil {
+func (h *handler) CheckDBConnection(c *gin.Context) {
+	if err := h.dbConn.Ping(); err != nil {
 		c.Status(http.StatusInternalServerError)
 	}
 

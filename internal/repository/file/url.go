@@ -1,7 +1,6 @@
 package file
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"math/rand"
@@ -36,7 +35,7 @@ func NewURLRepository(filePath string) (model.ShortenerRepository, error) {
 	return repo, nil
 }
 
-func (repo *urlRepository) Generate(_ context.Context) string {
+func (repo *urlRepository) Generate() string {
 	var urlRandom = rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		b := make([]byte, model.ShortURLLen)
@@ -50,7 +49,7 @@ func (repo *urlRepository) Generate(_ context.Context) string {
 	}
 }
 
-func (repo *urlRepository) Store(_ context.Context, url model.URL) (*string, error) {
+func (repo *urlRepository) Store(url model.URL) (*string, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 
@@ -65,10 +64,10 @@ func (repo *urlRepository) Store(_ context.Context, url model.URL) (*string, err
 	return &url.Short, repo.save()
 }
 
-func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.URL) ([]model.URL, error) {
+func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 	var result []model.URL
 	for _, url := range urls {
-		shortURL, err := repo.Store(ctx, url)
+		shortURL, err := repo.Store(url)
 		if err != nil && !errors.Is(err, model.ErrDuplicateURL) {
 			return nil, err
 		}
@@ -80,7 +79,7 @@ func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.URL) ([]mo
 	return result, nil
 }
 
-func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.URL, error) {
+func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()
 	url, ok := repo.storage[short]
@@ -90,7 +89,7 @@ func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.UR
 	return url, nil
 }
 
-func (repo *urlRepository) ClearAll(_ context.Context) error {
+func (repo *urlRepository) ClearAll() error {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()
 	repo.storage = make(map[string]model.URL)

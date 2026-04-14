@@ -17,7 +17,7 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 	if err != nil {
 		return
 	}
-	err = repo.ClearAll(ctx)
+	err = repo.ClearAll()
 	if err != nil {
 		return
 	}
@@ -76,7 +76,7 @@ func Test_shortenerService_GetShortURL(t *testing.T) {
 	if err != nil {
 		return
 	}
-	err = repo.ClearAll(ctx)
+	err = repo.ClearAll()
 	if err != nil {
 		return
 	}
@@ -122,7 +122,7 @@ func Test_shortenerService_ListShortURL(t *testing.T) {
 	if err != nil {
 		return
 	}
-	err = repo.ClearAll(ctx)
+	err = repo.ClearAll()
 	if err != nil {
 		return
 	}

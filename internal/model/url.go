@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"errors"
 )
 
@@ -22,9 +21,9 @@ type URL struct {
 }
 
 type ShortenerRepository interface {
-	Store(ctx context.Context, url URL) (*string, error)
-	GetByShort(ctx context.Context, short string) (URL, error)
-	Generate(ctx context.Context) string
-	StoreAll(ctx context.Context, urls []URL) ([]URL, error)
-	ClearAll(ctx context.Context) error
+	Store(url URL) (*string, error)
+	GetByShort(short string) (URL, error)
+	Generate() string
+	StoreAll(urls []URL) ([]URL, error)
+	ClearAll() error
 }

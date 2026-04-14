@@ -254,7 +254,7 @@ func setupRouter(storageFile string) *gin.Engine {
 	if err != nil {
 		panic(err)
 	}
-	err = repo.ClearAll(ctx)
+	err = repo.ClearAll()
 	if err != nil {
 		panic(err)
 	}
@@ -264,13 +264,13 @@ func setupRouter(storageFile string) *gin.Engine {
 
 	r := gin.Default()
 	r.POST("/", func(c *gin.Context) {
-		h.GetShortURL(ctx, c, baseURL)
+		h.GetShortURL(c, baseURL)
 	})
 	r.GET("/:id", func(c *gin.Context) {
-		h.GetURL(ctx, c)
+		h.GetURL(c)
 	})
 	r.POST("/api/shorten", func(c *gin.Context) {
-		restAPIHandler.GetShortURL(ctx, c, baseURL)
+		restAPIHandler.GetShortURL(c, baseURL)
 	})
 
 	return r
