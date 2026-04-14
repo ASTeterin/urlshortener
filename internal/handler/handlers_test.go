@@ -17,10 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const baseURL = "http://localhost:8000"
+const (
+	baseURL = "http://localhost:8000"
+)
 
 func Test_handler_GetShortURL(t *testing.T) {
-	router := setupRouter()
+	router := setupRouter("test_get_short_url")
 
 	type want struct {
 		code        int
@@ -96,8 +98,7 @@ func Test_handler_GetShortURL(t *testing.T) {
 }
 
 func Test_restAPIHandler_GetShortURL(t *testing.T) {
-	router := setupRouter()
-
+	router := setupRouter("test_rest_api_get_short_url")
 	type want struct {
 		code        int
 		response    ShortURLData
@@ -115,7 +116,7 @@ func Test_restAPIHandler_GetShortURL(t *testing.T) {
 			name:   "positive test",
 			method: "POST",
 			body: URLData{
-				URL: "http://yandex.ru",
+				URL: "http://ya.ru",
 			},
 			want: want{
 				code:        201,
@@ -127,7 +128,7 @@ func Test_restAPIHandler_GetShortURL(t *testing.T) {
 			name:   "positive test duplicate url",
 			method: "POST",
 			body: URLData{
-				URL: "http://yandex.ru",
+				URL: "http://ya.ru",
 			},
 			want: want{
 				code:        409,
@@ -185,8 +186,8 @@ func Test_restAPIHandler_GetShortURL(t *testing.T) {
 }
 
 func Test_handler_GetURL(t *testing.T) {
-	const originalURL = "http://yandex.ru"
-	router := setupRouter()
+	const originalURL = "http://test.ru"
+	router := setupRouter("test_get_url")
 	body := strings.NewReader(originalURL)
 	request := httptest.NewRequest(http.MethodPost, "/", body)
 	w := httptest.NewRecorder()
@@ -247,9 +248,13 @@ func Test_handler_GetURL(t *testing.T) {
 	}
 }
 
-func setupRouter() *gin.Engine {
+func setupRouter(storageFile string) *gin.Engine {
 	ctx := context.Background()
-	repo, err := file.NewURLRepository("test")
+	repo, err := file.NewURLRepository(storageFile)
+	if err != nil {
+		panic(err)
+	}
+	err = repo.ClearAll(ctx)
 	if err != nil {
 		panic(err)
 	}

@@ -80,7 +80,6 @@ func (repo *URLRepository) StoreAll(ctx context.Context, urls []model.URL) error
 		}
 	}
 	return tx.Commit()
-
 }
 
 func (repo *URLRepository) GetByShort(ctx context.Context, short string) (model.URL, error) {
@@ -92,4 +91,10 @@ func (repo *URLRepository) GetByShort(ctx context.Context, short string) (model.
 		return model.URL{}, model.ErrURLNotFound
 	}
 	return url, err
+}
+
+func (repo *URLRepository) ClearAll(ctx context.Context) error {
+	query := `DELETE FROM urls`
+	_, err := repo.db.ExecContext(ctx, query)
+	return err
 }

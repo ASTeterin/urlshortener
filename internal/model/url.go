@@ -26,4 +26,5 @@ type ShortenerRepository interface {
 	GetByShort(ctx context.Context, short string) (URL, error)
 	Generate(ctx context.Context) string
 	StoreAll(ctx context.Context, urls []URL) error
+	ClearAll(ctx context.Context) error
 }

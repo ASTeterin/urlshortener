@@ -3,11 +3,12 @@ package file
 import (
 	"context"
 	"encoding/json"
-	"github.com/ASTeterin/urlshortener/internal/model"
 	"math/rand"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/ASTeterin/urlshortener/internal/model"
 )
 
 type urlRepository struct {
@@ -49,9 +50,16 @@ func (repo *urlRepository) Generate(_ context.Context) string {
 }
 
 func (repo *urlRepository) Store(_ context.Context, url model.URL) (*string, error) {
-	url.UUID = repo.nextUUID()
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
+
+	for _, urlData := range repo.storage {
+		if urlData.Original == url.Original {
+			return &urlData.Short, model.ErrDuplicateURL
+		}
+	}
+
+	url.UUID = repo.nextUUID()
 	repo.storage[url.Short] = url
 	return &url.Short, repo.save()
 }
@@ -75,8 +83,16 @@ func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.UR
 	return url, nil
 }
 
+func (repo *urlRepository) ClearAll(_ context.Context) error {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
+	repo.storage = make(map[string]model.URL)
+	return repo.save()
+}
+
 func (repo *urlRepository) nextUUID() int {
-	return repo.uuid + 1
+	repo.uuid += 1
+	return repo.uuid
 }
 
 func (repo *urlRepository) save() error {
