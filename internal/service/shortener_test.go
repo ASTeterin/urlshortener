@@ -15,10 +15,6 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 	if err != nil {
 		return
 	}
-	err = repo.ClearAll()
-	if err != nil {
-		return
-	}
 	url := model.URL{
 		Short:    shortURL,
 		Original: originalURL,
@@ -73,10 +69,6 @@ func Test_shortenerService_GetShortURL(t *testing.T) {
 	if err != nil {
 		return
 	}
-	err = repo.ClearAll()
-	if err != nil {
-		return
-	}
 	tests := []struct {
 		name        string
 		originalURL string
@@ -115,10 +107,6 @@ func Test_shortenerService_ListShortURL(t *testing.T) {
 	var originalURL2 = "http://yandex.ru"
 	var originalURL3 = "http://test.ru"
 	repo, err := file.NewURLRepository("test")
-	if err != nil {
-		return
-	}
-	err = repo.ClearAll()
 	if err != nil {
 		return
 	}

@@ -73,13 +73,6 @@ func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 	return url, nil
 }
 
-func (repo *urlRepository) ClearAll() error {
-	repo.mu.RLock()
-	defer repo.mu.RUnlock()
-	repo.storage = make(map[string]model.URL)
-	return repo.save()
-}
-
 func (repo *urlRepository) nextUUID() int {
 	repo.uuid += 1
 	return repo.uuid

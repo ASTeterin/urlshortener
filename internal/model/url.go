@@ -24,5 +24,4 @@ type ShortenerRepository interface {
 	Store(url URL) (*string, error)
 	GetByShort(short string) (URL, error)
 	StoreAll(urls []URL) ([]URL, error)
-	ClearAll() error
 }

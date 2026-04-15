@@ -89,12 +89,6 @@ func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 	return url, err
 }
 
-func (repo *urlRepository) ClearAll() error {
-	query := `DELETE FROM urls`
-	_, err := repo.db.Exec(query)
-	return err
-}
-
 func (repo *urlRepository) getStoredShortURL(originalURL string) (string, error) {
 	const checkQuery = `SELECT short_url FROM urls WHERE original_url = $1`
 	var existingShortURL string

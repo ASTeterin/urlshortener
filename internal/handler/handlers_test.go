@@ -252,10 +252,6 @@ func setupRouter(storageFile string) *gin.Engine {
 	if err != nil {
 		panic(err)
 	}
-	err = repo.ClearAll()
-	if err != nil {
-		panic(err)
-	}
 	shortenerService := service.NewShortenerService(repo)
 	h := NewHandler(shortenerService, nil)
 	restAPIHandler := NewRestAPIHandler(shortenerService)
