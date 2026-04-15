@@ -23,16 +23,16 @@ func ParseFlags() Config {
 	flag.StringVar(&dbConnectionString, "d", "", "")
 	flag.Parse()
 
-	if envAppAddr := os.Getenv("SERVER_ADDRESS"); envAppAddr != "" {
+	if envAppAddr, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
 		appAddr = envAppAddr
 	}
-	if envResultBaseURL := os.Getenv("BASE_URL"); envResultBaseURL != "" {
+	if envResultBaseURL, exist := os.LookupEnv("BASE_URL"); exist {
 		resultBaseURL = envResultBaseURL
 	}
-	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
+	if envFileStoragePath, exist := os.LookupEnv("FILE_STORAGE_PATH"); exist {
 		fileStoragePath = envFileStoragePath
 	}
-	if envDBConnectionStr := os.Getenv("DATABASE_DSN"); envDBConnectionStr != "" {
+	if envDBConnectionStr, exist := os.LookupEnv("DATABASE_DSN"); exist {
 		dbConnectionString = envDBConnectionStr
 	}
 

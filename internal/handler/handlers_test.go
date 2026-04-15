@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/gin-gonic/gin"
@@ -249,7 +248,6 @@ func Test_handler_GetURL(t *testing.T) {
 }
 
 func setupRouter(storageFile string) *gin.Engine {
-	ctx := context.Background()
 	repo, err := file.NewURLRepository(storageFile)
 	if err != nil {
 		panic(err)

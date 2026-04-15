@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/repository/file"
 	"reflect"
@@ -12,7 +11,6 @@ const shortURL = "qWeRtYuI"
 
 func Test_shortenerService_GetOriginalURL(t *testing.T) {
 	var originalURL = "http://google.com"
-	ctx := context.Background()
 	repo, err := file.NewURLRepository("test")
 	if err != nil {
 		return
@@ -25,7 +23,7 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 		Short:    shortURL,
 		Original: originalURL,
 	}
-	_, err = repo.Store(ctx, url)
+	_, err = repo.Store(url)
 	if err != nil {
 		return
 	}
@@ -57,7 +55,7 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 			s := &shortenerService{
 				repo: repo,
 			}
-			got, err := s.GetOriginalURL(ctx, tt.shortURL)
+			got, err := s.GetOriginalURL(tt.shortURL)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetOriginalURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -71,7 +69,6 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 
 func Test_shortenerService_GetShortURL(t *testing.T) {
 	var originalURL = "http://google.com"
-	ctx := context.Background()
 	repo, err := file.NewURLRepository("test")
 	if err != nil {
 		return
@@ -104,7 +101,7 @@ func Test_shortenerService_GetShortURL(t *testing.T) {
 			s := &shortenerService{
 				repo: repo,
 			}
-			_, err := s.GetShortURL(ctx, originalURL)
+			_, err := s.GetShortURL(originalURL)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetShortURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -117,7 +114,6 @@ func Test_shortenerService_ListShortURL(t *testing.T) {
 	var originalURL1 = "http://google.com"
 	var originalURL2 = "http://yandex.ru"
 	var originalURL3 = "http://test.ru"
-	ctx := context.Background()
 	repo, err := file.NewURLRepository("test")
 	if err != nil {
 		return
@@ -150,7 +146,7 @@ func Test_shortenerService_ListShortURL(t *testing.T) {
 			s := &shortenerService{
 				repo: repo,
 			}
-			_, err := s.ListShortURL(ctx, tt.originalURLsMap)
+			_, err := s.ListShortURL(tt.originalURLsMap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ListShortURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
