@@ -11,7 +11,7 @@ const shortURL = "qWeRtYuI"
 
 func Test_shortenerService_GetOriginalURL(t *testing.T) {
 	var originalURL = "http://google.com"
-	repo, err := file.NewURLRepository("test")
+	repo, err := file.NewURLRepository("test_get_original_url")
 	if err != nil {
 		return
 	}
@@ -65,7 +65,7 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 
 func Test_shortenerService_GetShortURL(t *testing.T) {
 	var originalURL = "http://google.com"
-	repo, err := file.NewURLRepository("test")
+	repo, err := file.NewURLRepository("test_get_short_url")
 	if err != nil {
 		return
 	}
@@ -106,7 +106,7 @@ func Test_shortenerService_ListShortURL(t *testing.T) {
 	var originalURL1 = "http://google.com"
 	var originalURL2 = "http://yandex.ru"
 	var originalURL3 = "http://test.ru"
-	repo, err := file.NewURLRepository("test")
+	repo, err := file.NewURLRepository("test_list_short_url")
 	if err != nil {
 		return
 	}
