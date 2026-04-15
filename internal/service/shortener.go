@@ -1,7 +1,11 @@
 package service
 
 import (
+	"errors"
 	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/ASTeterin/urlshortener/internal/model"
 )
 
@@ -22,7 +26,7 @@ type shortenerService struct {
 }
 
 func (s *shortenerService) GetShortURL(originalURL string) (*string, error) {
-	short := s.repo.Generate()
+	short := s.generateShortURL()
 	url := model.URL{
 		Short:    short,
 		Original: originalURL,
@@ -64,7 +68,7 @@ func (s *shortenerService) GetOriginalURL(shortURL string) (*string, error) {
 func (s *shortenerService) generateModels(originalURLsMap map[string]string) []model.URL {
 	urls := make([]model.URL, 0, len(originalURLsMap))
 	for _, v := range originalURLsMap {
-		short := s.repo.Generate()
+		short := s.generateShortURL()
 		url := model.URL{
 			Short:    short,
 			Original: v,
@@ -72,4 +76,21 @@ func (s *shortenerService) generateModels(originalURLsMap map[string]string) []m
 		urls = append(urls, url)
 	}
 	return urls
+}
+
+func (s *shortenerService) generateShortURL() string {
+	var urlRandom = rand.New(rand.NewSource(time.Now().UnixNano()))
+	for {
+		b := make([]byte, model.ShortURLLen)
+		for i := range b {
+			b[i] = model.Letters[urlRandom.Intn(len(model.Letters))]
+		}
+		value := string(b)
+		_, err := s.repo.GetByShort(value)
+		if err != nil {
+			if errors.Is(err, model.ErrURLNotFound) {
+				return value
+			}
+		}
+	}
 }

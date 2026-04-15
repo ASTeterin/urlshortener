@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,4 +25,16 @@ func RequestLogger() gin.HandlerFunc {
 			Int("Size", size).
 			Msg("Request complete")
 	}
+}
+
+func LogErrorWithStack(err error, message string) {
+	if err == nil {
+		return
+	}
+
+	l := log.Error().Err(err).Str("message", message)
+	stackStr := fmt.Sprintf("%+v", err)
+	l = l.Str("stack", stackStr)
+
+	l.Send()
 }

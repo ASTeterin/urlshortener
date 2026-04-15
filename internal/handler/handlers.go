@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"net/http"
-	"net/url"
-	"time"
 )
 
 type Handler interface {
@@ -139,7 +140,12 @@ func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
 	}
 	responseData := make([]ListShortURLItem, 0, len(shortURLsMap))
 	for correlationID, shortURL := range shortURLsMap {
-		short := (fmt.Sprintf("%s/%s", baseURL, shortURL))
+		short, err2 := url.JoinPath(baseURL, shortURL)
+		if err2 != nil {
+			logger.LogErrorWithStack(err2, "Failed to join URL path")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 		responseData = append(responseData, ListShortURLItem{
 			CorrelationID: correlationID,
 			ShortURL:      short,
@@ -147,6 +153,7 @@ func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
 	}
 	response, err := json.Marshal(responseData)
 	if err != nil {
+		logger.LogErrorWithStack(err, "Failed to serialize JSON response")
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -170,15 +177,24 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 	short, err := h.service.GetShortURL(originalURL)
 	if err != nil {
 		if errors.Is(err, model.ErrDuplicateURL) {
-			response := []byte(fmt.Sprintf("%s/%s", baseURL, *short))
-			c.Data(http.StatusConflict, "text/plain", response)
+			shortURL, err2 := url.JoinPath(baseURL, *short)
+			if err2 != nil {
+				c.AbortWithStatus(http.StatusBadRequest)
+				return
+			}
+			c.Data(http.StatusConflict, "text/plain", []byte(shortURL))
 			return
 		}
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	response := []byte(fmt.Sprintf("%s/%s", baseURL, *short))
-	c.Data(http.StatusCreated, "text/plain", response)
+	shortURL, err2 := url.JoinPath(baseURL, *short)
+	if err2 != nil {
+		logger.LogErrorWithStack(err2, "Failed to join URL path")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Data(http.StatusCreated, "text/plain", []byte(shortURL))
 }
 
 func (h *handler) CheckDBConnection(c *gin.Context) {
@@ -193,11 +209,16 @@ func (h *handler) CheckDBConnection(c *gin.Context) {
 }
 
 func returnResponseWithStatus(c *gin.Context, status int, baseURL, shortURL string) {
-	short := (fmt.Sprintf("%s/%s", baseURL, shortURL))
+	short, err := url.JoinPath(baseURL, shortURL)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
 	var responseData ShortURLData
 	responseData.ShortURL = short
 	response, err := json.Marshal(responseData)
 	if err != nil {
+		logger.LogErrorWithStack(err, "Failed to serialize JSON response")
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}

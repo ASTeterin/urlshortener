@@ -3,10 +3,8 @@ package file
 import (
 	"encoding/json"
 	"errors"
-	"math/rand"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/ASTeterin/urlshortener/internal/model"
 )
@@ -33,20 +31,6 @@ func NewURLRepository(filePath string) (model.ShortenerRepository, error) {
 		}
 	}
 	return repo, nil
-}
-
-func (repo *urlRepository) Generate() string {
-	var urlRandom = rand.New(rand.NewSource(time.Now().UnixNano()))
-	for {
-		b := make([]byte, model.ShortURLLen)
-		for i := range b {
-			b[i] = model.Letters[urlRandom.Intn(len(model.Letters))]
-		}
-		value := string(b)
-		if _, ok := repo.storage[value]; !ok {
-			return value
-		}
-	}
 }
 
 func (repo *urlRepository) Store(url model.URL) (*string, error) {

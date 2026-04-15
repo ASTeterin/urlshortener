@@ -23,7 +23,6 @@ type URL struct {
 type ShortenerRepository interface {
 	Store(url URL) (*string, error)
 	GetByShort(short string) (URL, error)
-	Generate() string
 	StoreAll(urls []URL) ([]URL, error)
 	ClearAll() error
 }

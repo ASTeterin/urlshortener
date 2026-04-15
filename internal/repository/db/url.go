@@ -5,8 +5,6 @@ import (
 	"errors"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
-	"math/rand"
-	"time"
 
 	"github.com/ASTeterin/urlshortener/internal/model"
 )
@@ -20,23 +18,6 @@ func NewURLRepository(db *sql.DB) model.ShortenerRepository {
 		db: db,
 	}
 	return repo
-}
-
-func (repo *urlRepository) Generate() string {
-	var urlRandom = rand.New(rand.NewSource(time.Now().UnixNano()))
-	for {
-		b := make([]byte, model.ShortURLLen)
-		for i := range b {
-			b[i] = model.Letters[urlRandom.Intn(len(model.Letters))]
-		}
-		value := string(b)
-		_, err := repo.GetByShort(value)
-		if err != nil {
-			if errors.Is(err, model.ErrURLNotFound) {
-				return value
-			}
-		}
-	}
 }
 
 func (repo *urlRepository) Store(url model.URL) (*string, error) {
@@ -68,6 +49,7 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer tx.Rollback()
 	query := `INSERT INTO urls(short_url, original_url) VALUES ($1, $2) ON CONFLICT (short_url) DO NOTHING RETURNING short_url`
 	for _, url := range urls {
 		var shortURL string
@@ -86,7 +68,6 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 				})
 				continue
 			}
-			tx.Rollback()
 			return nil, err
 		}
 		result = append(result, model.URL{
