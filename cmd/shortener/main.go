@@ -20,7 +20,7 @@ func main() {
 	var repo model.ShortenerRepository
 	var err error
 	if config.DBConnStr != "" {
-		dbConn, err := sql.Open("pgx", config.DBConnStr)
+		dbConn, err = sql.Open("pgx", config.DBConnStr)
 		if err != nil {
 			log.Fatalf("failed to connect to database: %v", err)
 		}

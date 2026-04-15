@@ -198,8 +198,7 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 }
 
 func (h *handler) CheckDBConnection(c *gin.Context) {
-	context.TODO()
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Copy(), 5*time.Second)
 	defer cancel()
 	if err := h.dbConn.PingContext(ctx); err != nil {
 		c.Status(http.StatusInternalServerError)
