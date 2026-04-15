@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type Handler interface {
@@ -180,7 +182,10 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 }
 
 func (h *handler) CheckDBConnection(c *gin.Context) {
-	if err := h.dbConn.Ping(); err != nil {
+	context.TODO()
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+	if err := h.dbConn.PingContext(ctx); err != nil {
 		c.Status(http.StatusInternalServerError)
 	}
 
