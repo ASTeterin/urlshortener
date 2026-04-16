@@ -8,10 +8,11 @@ import (
 	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
 	dbrepo "github.com/ASTeterin/urlshortener/internal/repository/db"
-	"github.com/ASTeterin/urlshortener/internal/repository/file"
+	filerepo "github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
 	"log"
+	"os"
 )
 
 func main() {
@@ -25,9 +26,20 @@ func main() {
 			log.Fatalf("failed to connect to database: %v", err)
 		}
 		defer dbConn.Close()
+
+		runner, err := NewMigrationRunner(dbConn)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if err := runner.Up(); err != nil {
+			log.Printf("Ошибка миграций: %v", err)
+			os.Exit(1)
+		}
+
 		repo = dbrepo.NewURLRepository(dbConn)
 	} else {
-		repo, err = file.NewURLRepository(config.FilePath)
+		repo, err = filerepo.NewURLRepository(config.FilePath)
 		if err != nil {
 			log.Fatalf("failed to run server: %v", err)
 		}
