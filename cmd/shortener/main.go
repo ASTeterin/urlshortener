@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/ASTeterin/urlshortener/internal/compress"
 	appConfig "github.com/ASTeterin/urlshortener/internal/config"
 	"github.com/ASTeterin/urlshortener/internal/handler"
@@ -15,6 +16,8 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -70,8 +73,15 @@ func migrateDB(conn *sql.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	exePath, _ := os.Executable()
+	exeDir := filepath.Dir(exePath)
+	migrationsPath := filepath.Join(exeDir, "..", "..", "migrations")
+	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
+		log.Fatalf("Migrations directory not found: %s", migrationsPath)
+	}
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://urlshortener/migrations",
+		"file://"+migrationsPath,
 		"postgres",
 		driver,
 	)
@@ -80,7 +90,7 @@ func migrateDB(conn *sql.DB) {
 	}
 	err = m.Up()
 	if err != nil {
-		if err != migrate.ErrNoChange {
+		if !errors.Is(err, migrate.ErrNoChange) {
 			log.Fatal(err)
 		}
 	}
