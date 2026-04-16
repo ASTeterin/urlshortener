@@ -1,121 +1,224 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/url"
-
+	"errors"
+	"github.com/ASTeterin/urlshortener/internal/logger"
+	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"net/http"
+	"net/url"
+	"time"
 )
 
 type Handler interface {
 	GetURL(c *gin.Context)
-	GetShortURL(c *gin.Context, baseUrl string)
+	GetShortURL(c *gin.Context, baseURL string)
+	CheckDBConnection(c *gin.Context)
 }
 
-type RestApiHandler interface {
-	GetShortURL(c *gin.Context, baseUrl string)
+type RestAPIHandler interface {
+	GetShortURL(c *gin.Context, baseURL string)
+	ListShortURLs(c *gin.Context, baseURL string)
 }
 
-type UrlData struct {
+type URLData struct {
 	URL string `json:"url"`
 }
 
-type ShortUrlData struct {
-	ShortUrl string `json:"result"`
+type ShortURLData struct {
+	ShortURL string `json:"result"`
+}
+
+type ListURLItem struct {
+	URL           string `json:"original_url"`
+	CorrelationID string `json:"correlation_id"`
+}
+
+type ListShortURLItem struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
 }
 
 type handler struct {
 	service service.ShortenerService
+	dbConn  *sql.DB
 }
 
-type restApiHandler struct {
+type restAPIHandler struct {
 	service service.ShortenerService
 }
 
-func NewHandler(service service.ShortenerService) Handler {
+func NewHandler(service service.ShortenerService, dbConn *sql.DB) Handler {
 	return &handler{
 		service: service,
+		dbConn:  dbConn,
 	}
 }
 
-func NewRestApiHandler(service service.ShortenerService) RestApiHandler {
-	return &restApiHandler{
+func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
+	return &restAPIHandler{
 		service: service,
 	}
 }
 
 func (h *handler) GetURL(c *gin.Context) {
-	shortUrl := c.Param("id")
-	originalUrl, err := h.service.GetOriginalUrl(shortUrl)
-	if err != nil || originalUrl == nil {
-		c.AbortWithStatus(400)
+	shortURL := c.Param("id")
+	originalURL, err := h.service.GetOriginalURL(shortURL)
+	if err != nil || originalURL == nil {
+		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
 	c.Header("Content-Type", "text/plain")
-	c.Header("Location", *originalUrl)
-	c.Redirect(http.StatusTemporaryRedirect, *originalUrl)
+	c.Header("Location", *originalURL)
+	c.Redirect(http.StatusTemporaryRedirect, *originalURL)
 }
 
-func (h *restApiHandler) GetShortURL(c *gin.Context, baseUrl string) {
-	var urlData UrlData
+func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
+	var urlData URLData
 	err := c.BindJSON(&urlData)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	originalUrl := urlData.URL
-	if originalUrl == "" {
+	originalURL := urlData.URL
+	if originalURL == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	_, err = url.ParseRequestURI(originalUrl)
+	_, err = url.ParseRequestURI(originalURL)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	shortUrl, err := h.service.GetShortUrl(originalUrl)
+	shortURL, err := h.service.GetShortURL(originalURL)
+	if err != nil {
+		if errors.Is(err, model.ErrDuplicateURL) {
+			returnResponseWithStatus(c, http.StatusConflict, baseURL, *shortURL)
+			return
+		}
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	returnResponseWithStatus(c, http.StatusCreated, baseURL, *shortURL)
+}
+
+func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
+	var urls []ListURLItem
+	err := c.BindJSON(&urls)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	short := (fmt.Sprintf("%s/%s", baseUrl, *shortUrl))
-	var responseData ShortUrlData
-	responseData.ShortUrl = short
+
+	urlsMap := make(map[string]string)
+	for _, u := range urls {
+		if u.URL == "" {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		_, err = url.ParseRequestURI(u.URL)
+		if err != nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		urlsMap[u.CorrelationID] = u.URL
+	}
+
+	shortURLsMap, err := h.service.ListShortURL(urlsMap)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	responseData := make([]ListShortURLItem, 0, len(shortURLsMap))
+	for correlationID, shortURL := range shortURLsMap {
+		short, err2 := url.JoinPath(baseURL, shortURL)
+		if err2 != nil {
+			logger.LogErrorWithStack(err2, "Failed to join URL path")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		responseData = append(responseData, ListShortURLItem{
+			CorrelationID: correlationID,
+			ShortURL:      short,
+		})
+	}
 	response, err := json.Marshal(responseData)
 	if err != nil {
+		logger.LogErrorWithStack(err, "Failed to serialize JSON response")
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 	c.Data(http.StatusCreated, "application/json", response)
-
 }
 
-func (h *handler) GetShortURL(c *gin.Context, baseUrl string) {
-	var originalUrl string
-	err := c.BindPlain(&originalUrl)
-	if err != nil || originalUrl == "" {
+func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
+	var originalURL string
+	err := c.BindPlain(&originalURL)
+	if err != nil || originalURL == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	_, err = url.ParseRequestURI(originalUrl)
+	_, err = url.ParseRequestURI(originalURL)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	short, err := h.service.GetShortUrl(originalUrl)
+	short, err := h.service.GetShortURL(originalURL)
+	if err != nil {
+		if errors.Is(err, model.ErrDuplicateURL) {
+			shortURL, err2 := url.JoinPath(baseURL, *short)
+			if err2 != nil {
+				c.AbortWithStatus(http.StatusBadRequest)
+				return
+			}
+			c.Data(http.StatusConflict, "text/plain", []byte(shortURL))
+			return
+		}
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	shortURL, err2 := url.JoinPath(baseURL, *short)
+	if err2 != nil {
+		logger.LogErrorWithStack(err2, "Failed to join URL path")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Data(http.StatusCreated, "text/plain", []byte(shortURL))
+}
+
+func (h *handler) CheckDBConnection(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+	if err := h.dbConn.PingContext(ctx); err != nil {
+		c.Status(http.StatusInternalServerError)
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func returnResponseWithStatus(c *gin.Context, status int, baseURL, shortURL string) {
+	short, err := url.JoinPath(baseURL, shortURL)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	response := []byte(fmt.Sprintf("%s/%s", baseUrl, *short))
-
-	c.Data(http.StatusCreated, "text/plain", response)
+	var responseData ShortURLData
+	responseData.ShortURL = short
+	response, err := json.Marshal(responseData)
+	if err != nil {
+		logger.LogErrorWithStack(err, "Failed to serialize JSON response")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Data(status, "application/json", response)
 }

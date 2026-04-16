@@ -7,32 +7,39 @@ import (
 
 type Config struct {
 	AppAddr       string
-	ResultBaseUrl string
+	ResultBaseURL string
 	FilePath      string
+	DBConnStr     string
 }
 
 func ParseFlags() Config {
 	var appAddr string
-	var resultBaseUrl string
+	var resultBaseURL string
 	var fileStoragePath string
+	var dbConnectionString string
 	flag.StringVar(&appAddr, "a", ":8080", "port to run server")
-	flag.StringVar(&resultBaseUrl, "b", "http://localhost:8080", "base url for short url")
+	flag.StringVar(&resultBaseURL, "b", "http://localhost:8080", "base url for short url")
 	flag.StringVar(&fileStoragePath, "f", "filestorage.txt", "file storage path")
+	flag.StringVar(&dbConnectionString, "d", "", "database DSN")
 	flag.Parse()
 
-	if envAppAddr := os.Getenv("SERVER_ADDRESS"); envAppAddr != "" {
+	if envAppAddr, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
 		appAddr = envAppAddr
 	}
-	if envResultBaseUrl := os.Getenv("BASE_URL"); envResultBaseUrl != "" {
-		resultBaseUrl = envResultBaseUrl
+	if envResultBaseURL, exist := os.LookupEnv("BASE_URL"); exist {
+		resultBaseURL = envResultBaseURL
 	}
-	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
+	if envFileStoragePath, exist := os.LookupEnv("FILE_STORAGE_PATH"); exist {
 		fileStoragePath = envFileStoragePath
+	}
+	if envDBConnectionStr, exist := os.LookupEnv("DATABASE_DSN"); exist {
+		dbConnectionString = envDBConnectionStr
 	}
 
 	return Config{
 		AppAddr:       appAddr,
-		ResultBaseUrl: resultBaseUrl,
+		ResultBaseURL: resultBaseURL,
 		FilePath:      fileStoragePath,
+		DBConnStr:     dbConnectionString,
 	}
 }

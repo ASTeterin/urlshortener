@@ -1,40 +1,97 @@
 package main
 
 import (
-	"log"
-
+	"database/sql"
+	"errors"
 	"github.com/ASTeterin/urlshortener/internal/compress"
 	appConfig "github.com/ASTeterin/urlshortener/internal/config"
 	"github.com/ASTeterin/urlshortener/internal/handler"
 	"github.com/ASTeterin/urlshortener/internal/logger"
-	"github.com/ASTeterin/urlshortener/internal/repository"
+	"github.com/ASTeterin/urlshortener/internal/model"
+	dbrepo "github.com/ASTeterin/urlshortener/internal/repository/db"
+	filerepo "github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"log"
+	"os"
+	"path/filepath"
 )
 
 func main() {
 	config := appConfig.ParseFlags()
-	repo, err := repository.NewUrlRepository(config.FilePath)
-	if err != nil {
-		log.Fatalf("failed to run server: %v", err)
+	var dbConn *sql.DB
+	var repo model.ShortenerRepository
+	var err error
+	if config.DBConnStr != "" {
+		dbConn, err = sql.Open("pgx", config.DBConnStr)
+		if err != nil {
+			log.Fatalf("failed to connect to database: %v", err)
+		}
+		defer dbConn.Close()
+		migrateDB(dbConn)
+		repo = dbrepo.NewURLRepository(dbConn)
+	} else {
+		repo, err = filerepo.NewURLRepository(config.FilePath)
+		if err != nil {
+			log.Fatalf("failed to run server: %v", err)
+		}
 	}
 	shortenerService := service.NewShortenerService(repo)
-	h := handler.NewHandler(shortenerService)
-	restApiHandler := handler.NewRestApiHandler(shortenerService)
+	h := handler.NewHandler(shortenerService, dbConn)
+	restAPIHandler := handler.NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
 	r.Use(logger.RequestLogger(), compress.RequestEncoder())
 	r.POST("/", func(c *gin.Context) {
-		h.GetShortURL(c, config.ResultBaseUrl)
+		h.GetShortURL(c, config.ResultBaseURL)
 	})
 	r.GET("/:id", func(c *gin.Context) {
 		h.GetURL(c)
 	})
 	r.POST("/api/shorten", func(c *gin.Context) {
-		restApiHandler.GetShortURL(c, config.ResultBaseUrl)
+		restAPIHandler.GetShortURL(c, config.ResultBaseURL)
+	})
+	r.GET("/ping", func(c *gin.Context) {
+		h.CheckDBConnection(c)
+	})
+	r.POST("/api/shorten/batch", func(c *gin.Context) {
+		restAPIHandler.ListShortURLs(c, config.ResultBaseURL)
 	})
 
 	if err := r.Run(config.AppAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
+	}
+}
+
+func migrateDB(conn *sql.DB) {
+	driver, err := postgres.WithInstance(conn, &postgres.Config{
+		SchemaName: "public",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	exePath, _ := os.Executable()
+	exeDir := filepath.Dir(exePath)
+	migrationsPath := filepath.Join(exeDir, "..", "..", "migrations")
+	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
+		log.Fatalf("Migrations directory not found: %s", migrationsPath)
+	}
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://"+migrationsPath,
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = m.Up()
+	if err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			log.Fatal(err)
+		}
 	}
 }

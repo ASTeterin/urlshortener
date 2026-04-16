@@ -1,0 +1,5 @@
+CREATE TABLE public.urls (
+    id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    short_url VARCHAR(255) NOT NULL,
+    original_url VARCHAR(255) NOT NULL
+);

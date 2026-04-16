@@ -1,22 +1,27 @@
 package model
 
-import "errors"
+import (
+	"errors"
+)
 
-var ErrUrlNotFound = errors.New("url not found")
+var (
+	ErrURLNotFound  = errors.New("url not found")
+	ErrDuplicateURL = errors.New("duplicate url")
+)
 
 const (
-	ShortUrlLen = 8
+	ShortURLLen = 8
 	Letters     = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 
-type Url struct {
-	Uuid     int    `json:"uuid"`
-	Short    string `json:"short"`
-	Original string `json:"original_url"`
+type URL struct {
+	UUID     int    `json:"uuid" db:"id"`
+	Short    string `json:"short" db:"short_url"`
+	Original string `json:"original_url" db:"original_url"`
 }
 
 type ShortenerRepository interface {
-	Store(url Url) error
-	GetByShort(short string) (Url, error)
-	Generate() string
+	Store(url URL) (*string, error)
+	GetByShort(short string) (URL, error)
+	StoreAll(urls []URL) ([]URL, error)
 }
