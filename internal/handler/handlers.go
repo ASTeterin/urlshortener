@@ -1,19 +1,16 @@
 package handler
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/url"
-	"time"
-
 	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"net/http"
+	"net/url"
 )
 
 type Handler interface {
@@ -198,9 +195,7 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 }
 
 func (h *handler) CheckDBConnection(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Copy(), 5*time.Second)
-	defer cancel()
-	if err := h.dbConn.PingContext(ctx); err != nil {
+	if err := h.dbConn.Ping(); err != nil {
 		c.Status(http.StatusInternalServerError)
 	}
 

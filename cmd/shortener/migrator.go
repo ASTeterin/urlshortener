@@ -9,7 +9,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-//go:embed migrations/*.sql
 var migrationsFS embed.FS
 
 type MigrationRunner struct {
