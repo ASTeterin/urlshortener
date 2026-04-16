@@ -11,8 +11,10 @@ import (
 	filerepo "github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/ASTeterin/urlshortener/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"log"
-	"os"
 )
 
 func main() {
@@ -26,17 +28,7 @@ func main() {
 			log.Fatalf("failed to connect to database: %v", err)
 		}
 		defer dbConn.Close()
-
-		runner, err := NewMigrationRunner(dbConn)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if err := runner.Up(); err != nil {
-			log.Printf("Ошибка миграций: %v", err)
-			os.Exit(1)
-		}
-
+		migrateDB(dbConn)
 		repo = dbrepo.NewURLRepository(dbConn)
 	} else {
 		repo, err = filerepo.NewURLRepository(config.FilePath)
@@ -68,5 +60,28 @@ func main() {
 
 	if err := r.Run(config.AppAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
+	}
+}
+
+func migrateDB(conn *sql.DB) {
+	driver, err := postgres.WithInstance(conn, &postgres.Config{
+		SchemaName: "public",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://urlshortener/migrations",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = m.Up()
+	if err != nil {
+		if err != migrate.ErrNoChange {
+			log.Fatal(err)
+		}
 	}
 }
