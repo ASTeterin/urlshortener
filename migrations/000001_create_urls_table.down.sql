@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS `public.urls`;
+DROP TABLE IF EXISTS urls;
