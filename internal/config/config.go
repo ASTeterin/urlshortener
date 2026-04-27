@@ -20,7 +20,7 @@ func ParseFlags() Config {
 	var resultBaseURL string
 	var fileStoragePath string
 	var dbConnectionString string
-	var signingKey string = defaultSigningKey
+	var signingKey = defaultSigningKey
 	flag.StringVar(&appAddr, "a", ":8080", "port to run server")
 	flag.StringVar(&resultBaseURL, "b", "http://localhost:8080", "base url for short url")
 	flag.StringVar(&fileStoragePath, "f", "filestorage.txt", "file storage path")
