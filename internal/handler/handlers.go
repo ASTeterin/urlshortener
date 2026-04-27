@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/ASTeterin/urlshortener/internal/cookie"
 	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/service"
@@ -24,6 +25,7 @@ type Handler interface {
 type RestAPIHandler interface {
 	GetShortURL(c *gin.Context, baseURL string)
 	ListShortURLs(c *gin.Context, baseURL string)
+	ListUserURLs(c *gin.Context, baseURL string)
 }
 
 type URLData struct {
@@ -42,6 +44,11 @@ type ListURLItem struct {
 type ListShortURLItem struct {
 	CorrelationID string `json:"correlation_id"`
 	ShortURL      string `json:"short_url"`
+}
+
+type ListUserURLItem struct {
+	OriginalURL string `json:"original_url"`
+	ShortURL    string `json:"short_url"`
 }
 
 type handler struct {
@@ -98,7 +105,8 @@ func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
 		return
 	}
 
-	shortURL, err := h.service.GetShortURL(originalURL)
+	userID := getUserID(c)
+	shortURL, err := h.service.GetShortURL(originalURL, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrDuplicateURL) {
 			returnResponseWithStatus(c, http.StatusConflict, baseURL, *shortURL)
@@ -108,6 +116,41 @@ func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
 		return
 	}
 	returnResponseWithStatus(c, http.StatusCreated, baseURL, *shortURL)
+}
+
+func (h *restAPIHandler) ListUserURLs(c *gin.Context, baseURL string) {
+	userID := getUserID(c)
+	shortURLsMap, err := h.service.ListUserURLs(userID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	if len(shortURLsMap) == 0 {
+		c.Status(http.StatusNoContent)
+		return
+	}
+
+	responseData := make([]ListUserURLItem, 0, len(shortURLsMap))
+	for originalURL, shortURL := range shortURLsMap {
+		short, err2 := url.JoinPath(baseURL, shortURL)
+		if err2 != nil {
+			logger.LogErrorWithStack(err2, "Failed to join URL path")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		responseData = append(responseData, ListUserURLItem{
+			OriginalURL: originalURL,
+			ShortURL:    short,
+		})
+	}
+
+	response, err := json.Marshal(responseData)
+	if err != nil {
+		logger.LogErrorWithStack(err, "Failed to serialize JSON response")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Data(http.StatusOK, "application/json", response)
 }
 
 func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
@@ -132,7 +175,8 @@ func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
 		urlsMap[u.CorrelationID] = u.URL
 	}
 
-	shortURLsMap, err := h.service.ListShortURL(urlsMap)
+	userID := getUserID(c)
+	shortURLsMap, err := h.service.ListShortURL(urlsMap, userID)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -173,7 +217,8 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 		return
 	}
 
-	short, err := h.service.GetShortURL(originalURL)
+	userID := getUserID(c)
+	short, err := h.service.GetShortURL(originalURL, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrDuplicateURL) {
 			shortURL, err2 := url.JoinPath(baseURL, *short)
@@ -221,4 +266,8 @@ func returnResponseWithStatus(c *gin.Context, status int, baseURL, shortURL stri
 		return
 	}
 	c.Data(status, "application/json", response)
+}
+
+func getUserID(c *gin.Context) string {
+	return c.GetString(string(cookie.UserIDKey))
 }

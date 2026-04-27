@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -22,14 +23,14 @@ func NewURLRepository(db *sql.DB) model.ShortenerRepository {
 
 func (repo *urlRepository) Store(url model.URL) (*string, error) {
 	const query = `
-        INSERT INTO urls (short_url, original_url)
-        VALUES ($1, $2)
+        INSERT INTO urls (short_url, original_url, created_by)
+        VALUES ($1, $2, $3)
         ON CONFLICT (short_url) DO NOTHING
         RETURNING short_url
     `
 
 	var shortURL string
-	err := repo.db.QueryRow(query, url.Short, url.Original).Scan(&shortURL)
+	err := repo.db.QueryRow(query, url.Short, url.Original, url.CreatedBy).Scan(&shortURL)
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
@@ -50,10 +51,10 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 		return nil, err
 	}
 	defer tx.Rollback()
-	query := `INSERT INTO urls(short_url, original_url) VALUES ($1, $2) ON CONFLICT (short_url) DO NOTHING RETURNING short_url`
+	query := `INSERT INTO urls(short_url, original_url, created_by) VALUES ($1, $2, $3) ON CONFLICT (short_url) DO NOTHING RETURNING short_url`
 	for _, url := range urls {
 		var shortURL string
-		err = tx.QueryRow(query, url.Short, url.Original).Scan(&shortURL)
+		err = tx.QueryRow(query, url.Short, url.Original, url.CreatedBy).Scan(&shortURL)
 
 		var pgErr *pgconn.PgError
 		if err != nil {
@@ -87,6 +88,26 @@ func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 		return model.URL{}, model.ErrURLNotFound
 	}
 	return url, err
+}
+
+func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
+	query := `SELECT id, short_url, original_url FROM urls WHERE created_by = $1`
+	urls := make([]model.URL, 0)
+	rows, err := repo.db.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var url model.URL
+		err = rows.Scan(&url.UUID, &url.Short, &url.Original)
+		if err != nil {
+			return nil, fmt.Errorf("scan error: %w", err)
+		}
+		urls = append(urls, url)
+	}
+	return urls, nil
 }
 
 func (repo *urlRepository) getStoredShortURL(originalURL string) (string, error) {

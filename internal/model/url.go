@@ -15,13 +15,15 @@ const (
 )
 
 type URL struct {
-	UUID     int    `json:"uuid" db:"id"`
-	Short    string `json:"short" db:"short_url"`
-	Original string `json:"original_url" db:"original_url"`
+	UUID      int    `json:"uuid" db:"id"`
+	Short     string `json:"short" db:"short_url"`
+	Original  string `json:"original_url" db:"original_url"`
+	CreatedBy string `json:"created_by" db:"created_by"`
 }
 
 type ShortenerRepository interface {
 	Store(url URL) (*string, error)
 	GetByShort(short string) (URL, error)
 	StoreAll(urls []URL) ([]URL, error)
+	ListByUserID(userID string) ([]URL, error)
 }

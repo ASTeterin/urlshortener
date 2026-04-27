@@ -5,11 +5,14 @@ import (
 	"os"
 )
 
+const defaultSigningKey string = "default_signing_key"
+
 type Config struct {
 	AppAddr       string
 	ResultBaseURL string
 	FilePath      string
 	DBConnStr     string
+	SigningKey    string
 }
 
 func ParseFlags() Config {
@@ -17,6 +20,7 @@ func ParseFlags() Config {
 	var resultBaseURL string
 	var fileStoragePath string
 	var dbConnectionString string
+	var signingKey string = defaultSigningKey
 	flag.StringVar(&appAddr, "a", ":8080", "port to run server")
 	flag.StringVar(&resultBaseURL, "b", "http://localhost:8080", "base url for short url")
 	flag.StringVar(&fileStoragePath, "f", "filestorage.txt", "file storage path")
@@ -35,11 +39,15 @@ func ParseFlags() Config {
 	if envDBConnectionStr, exist := os.LookupEnv("DATABASE_DSN"); exist {
 		dbConnectionString = envDBConnectionStr
 	}
+	if key, exist := os.LookupEnv("SIGNING_KEY"); exist {
+		signingKey = key
+	}
 
 	return Config{
 		AppAddr:       appAddr,
 		ResultBaseURL: resultBaseURL,
 		FilePath:      fileStoragePath,
 		DBConnStr:     dbConnectionString,
+		SigningKey:    signingKey,
 	}
 }

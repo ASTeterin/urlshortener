@@ -10,9 +10,10 @@ import (
 )
 
 type ShortenerService interface {
-	GetShortURL(originalURL string) (*string, error)
+	GetShortURL(originalURL, userID string) (*string, error)
 	GetOriginalURL(shortURL string) (*string, error)
-	ListShortURL(originalURLsMap map[string]string) (map[string]string, error)
+	ListShortURL(originalURLsMap map[string]string, userID string) (map[string]string, error)
+	ListUserURLs(userID string) (map[string]string, error)
 }
 
 func NewShortenerService(repo model.ShortenerRepository) ShortenerService {
@@ -25,18 +26,19 @@ type shortenerService struct {
 	repo model.ShortenerRepository
 }
 
-func (s *shortenerService) GetShortURL(originalURL string) (*string, error) {
+func (s *shortenerService) GetShortURL(originalURL, userID string) (*string, error) {
 	short := s.generateShortURL()
 	url := model.URL{
-		Short:    short,
-		Original: originalURL,
+		Short:     short,
+		Original:  originalURL,
+		CreatedBy: userID,
 	}
 	return s.repo.Store(url)
 }
 
-func (s *shortenerService) ListShortURL(originalURLsMap map[string]string) (map[string]string, error) {
+func (s *shortenerService) ListShortURL(originalURLsMap map[string]string, userID string) (map[string]string, error) {
 	result := make(map[string]string)
-	urls := s.generateModels(originalURLsMap)
+	urls := s.generateModels(originalURLsMap, userID)
 	storedURLs, err := s.repo.StoreAll(urls)
 	if err != nil {
 		return nil, err
@@ -57,6 +59,19 @@ func (s *shortenerService) ListShortURL(originalURLsMap map[string]string) (map[
 	return result, nil
 }
 
+func (s *shortenerService) ListUserURLs(userID string) (map[string]string, error) {
+	storedURLs, err := s.repo.ListByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]string)
+	for _, url := range storedURLs {
+		result[url.Original] = url.Short
+	}
+
+	return result, nil
+}
+
 func (s *shortenerService) GetOriginalURL(shortURL string) (*string, error) {
 	url, err := s.repo.GetByShort(shortURL)
 	if err != nil {
@@ -65,13 +80,14 @@ func (s *shortenerService) GetOriginalURL(shortURL string) (*string, error) {
 	return &url.Original, nil
 }
 
-func (s *shortenerService) generateModels(originalURLsMap map[string]string) []model.URL {
+func (s *shortenerService) generateModels(originalURLsMap map[string]string, userID string) []model.URL {
 	urls := make([]model.URL, 0, len(originalURLsMap))
 	for _, v := range originalURLsMap {
 		short := s.generateShortURL()
 		url := model.URL{
-			Short:    short,
-			Original: v,
+			Short:     short,
+			Original:  v,
+			CreatedBy: userID,
 		}
 		urls = append(urls, url)
 	}

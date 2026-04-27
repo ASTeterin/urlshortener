@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/ASTeterin/urlshortener/internal/compress"
 	appConfig "github.com/ASTeterin/urlshortener/internal/config"
+	"github.com/ASTeterin/urlshortener/internal/cookie"
 	"github.com/ASTeterin/urlshortener/internal/handler"
 	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
@@ -44,7 +45,7 @@ func main() {
 	restAPIHandler := handler.NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
-	r.Use(logger.RequestLogger(), compress.RequestEncoder())
+	r.Use(logger.RequestLogger(), compress.RequestEncoder(), cookie.CookieHandler(config.SigningKey))
 	r.POST("/", func(c *gin.Context) {
 		h.GetShortURL(c, config.ResultBaseURL)
 	})
@@ -59,6 +60,9 @@ func main() {
 	})
 	r.POST("/api/shorten/batch", func(c *gin.Context) {
 		restAPIHandler.ListShortURLs(c, config.ResultBaseURL)
+	})
+	r.GET("/api/user/urls", func(c *gin.Context) {
+		restAPIHandler.ListUserURLs(c, config.ResultBaseURL)
 	})
 
 	if err := r.Run(config.AppAddr); err != nil {

@@ -73,6 +73,18 @@ func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 	return url, nil
 }
 
+func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
+	var result []model.URL
+	for _, urlData := range repo.storage {
+		if urlData.CreatedBy == userID {
+			result = append(result, urlData)
+		}
+	}
+	return result, nil
+}
+
 func (repo *urlRepository) nextUUID() int {
 	repo.uuid += 1
 	return repo.uuid
