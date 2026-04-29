@@ -85,6 +85,28 @@ func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
 	return result, nil
 }
 
+func (repo *urlRepository) Remove(shortURLs []string, userID string) model.BatchDeleteResult {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+
+	countDeleted := 0
+	for _, shortURL := range shortURLs {
+		if url, ok := repo.storage[shortURL]; ok {
+			if url.CreatedBy == userID {
+				url.DeletedFlag = true
+				repo.storage[shortURL] = url
+				countDeleted++
+			}
+		}
+	}
+
+	err := repo.save()
+	return model.BatchDeleteResult{
+		SuccessCount: countDeleted,
+		Error:        err,
+	}
+}
+
 func (repo *urlRepository) nextUUID() int {
 	repo.uuid += 1
 	return repo.uuid

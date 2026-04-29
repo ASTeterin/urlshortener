@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/ASTeterin/urlshortener/internal/model"
@@ -14,16 +15,26 @@ type ShortenerService interface {
 	GetOriginalURL(shortURL string) (*string, error)
 	ListShortURL(originalURLsMap map[string]string, userID string) (map[string]string, error)
 	ListUserURLs(userID string) (map[string]string, error)
+	BatchRemove(shortURLs []string, userID string) *DeleteURLResponse
 }
 
 func NewShortenerService(repo model.ShortenerRepository) ShortenerService {
 	return &shortenerService{
-		repo: repo,
+		repo:       repo,
+		maxWorkers: 8,
+		batchSize:  50,
 	}
 }
 
 type shortenerService struct {
-	repo model.ShortenerRepository
+	repo       model.ShortenerRepository
+	batchSize  int
+	maxWorkers int
+}
+
+type DeleteURLResponse struct {
+	SuccessCount int
+	Errors       []error
 }
 
 func (s *shortenerService) GetShortURL(originalURL, userID string) (*string, error) {
@@ -72,6 +83,61 @@ func (s *shortenerService) ListUserURLs(userID string) (map[string]string, error
 	return result, nil
 }
 
+func (s *shortenerService) BatchRemove(shortURLs []string, userID string) *DeleteURLResponse {
+	if len(shortURLs) == 0 {
+		return &DeleteURLResponse{SuccessCount: 0, Errors: nil}
+	}
+
+	batches := s.splitIntoBatches(shortURLs, s.batchSize)
+
+	// Каналы для Fan-In
+	batchCh := make(chan []string, len(batches))
+	resultCh := make(chan model.BatchDeleteResult, len(batches))
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+
+	// Запуск воркеров
+	var wg sync.WaitGroup
+	for i := 0; i < s.maxWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.batchWorker(userID, doneCh, batchCh, resultCh)
+		}()
+	}
+
+	// Отправка батчей
+	go func() {
+		for _, batch := range batches {
+			select {
+			case <-doneCh:
+				return
+			case batchCh <- batch:
+			}
+		}
+		close(batchCh)
+	}()
+
+	// Закрытие resultCh после завершения всех воркеров
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
+
+	var totalSuccess int
+	var allErrors []error
+
+	for result := range resultCh {
+		totalSuccess += result.SuccessCount
+		allErrors = append(allErrors, result.Error)
+	}
+
+	return &DeleteURLResponse{
+		SuccessCount: totalSuccess,
+		Errors:       allErrors,
+	}
+}
+
 func (s *shortenerService) GetOriginalURL(shortURL string) (*string, error) {
 	url, err := s.repo.GetByShort(shortURL)
 	if err != nil {
@@ -109,4 +175,32 @@ func (s *shortenerService) generateShortURL() string {
 			}
 		}
 	}
+}
+
+func (s *shortenerService) batchWorker(userID string, doneCh chan struct{}, batchCh <-chan []string, resultCh chan<- model.BatchDeleteResult) {
+	for batch := range batchCh {
+		select {
+		case <-doneCh:
+			resultCh <- model.BatchDeleteResult{
+				SuccessCount: 0,
+				Error:        nil,
+			}
+			return
+		default:
+			result := s.repo.Remove(batch, userID)
+			resultCh <- result
+		}
+	}
+}
+
+func (s *shortenerService) splitIntoBatches(urls []string, batchSize int) [][]string {
+	var batches [][]string
+	for i := 0; i < len(urls); i += batchSize {
+		end := i + batchSize
+		if end > len(urls) {
+			end = len(urls)
+		}
+		batches = append(batches, urls[i:end])
+	}
+	return batches
 }

@@ -1,2 +1,2 @@
 ALTER TABLE urls
-    ADD COLUMN created_by;
+    DROP COLUMN created_by;

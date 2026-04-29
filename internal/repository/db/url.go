@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
+	"strings"
 
 	"github.com/ASTeterin/urlshortener/internal/model"
 )
@@ -80,12 +81,15 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 }
 
 func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
-	query := `SELECT id, short_url, original_url FROM urls WHERE short_url = $1`
+	query := `SELECT id, short_url, original_url, is_deleted FROM urls WHERE short_url = $1`
 	url := model.URL{}
 	err := repo.db.QueryRow(query, short).Scan(
-		&url.UUID, &url.Short, &url.Original)
+		&url.UUID, &url.Short, &url.Original, &url.DeletedFlag)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.URL{}, model.ErrURLNotFound
+	}
+	if url.DeletedFlag {
+		return model.URL{}, model.ErrURLHasBeenDeleted
 	}
 	return url, err
 }
@@ -108,6 +112,44 @@ func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
 		urls = append(urls, url)
 	}
 	return urls, nil
+}
+
+func (repo *urlRepository) Remove(shortURLs []string, userID string) model.BatchDeleteResult {
+	if len(shortURLs) == 0 {
+		return model.BatchDeleteResult{
+			SuccessCount: 0,
+			Error:        nil,
+		}
+	}
+	placeholders := make([]string, len(shortURLs))
+	for i := range shortURLs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+	}
+
+	query := fmt.Sprintf(`
+        UPDATE urls 
+        SET is_deleted = 1
+        WHERE short_url IN (%s) AND created_by = $%d
+    `, strings.Join(placeholders, ", "), len(shortURLs)+1)
+
+	args := []interface{}{}
+	for _, url := range shortURLs {
+		args = append(args, url)
+	}
+	args = append(args, userID)
+
+	result, err := repo.db.Exec(query, args...)
+	if err != nil {
+		return model.BatchDeleteResult{
+			SuccessCount: 0,
+			Error:        err,
+		}
+	}
+	affectedRows, err := result.RowsAffected()
+	return model.BatchDeleteResult{
+		SuccessCount: int(affectedRows),
+		Error:        err,
+	}
 }
 
 func (repo *urlRepository) getStoredShortURL(originalURL string) (string, error) {

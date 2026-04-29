@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/ASTeterin/urlshortener/internal/cookie"
 	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
@@ -26,6 +27,7 @@ type RestAPIHandler interface {
 	GetShortURL(c *gin.Context, baseURL string)
 	ListShortURLs(c *gin.Context, baseURL string)
 	ListUserURLs(c *gin.Context, baseURL string)
+	BatchRemove(c *gin.Context)
 }
 
 type URLData struct {
@@ -76,7 +78,12 @@ func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
 func (h *handler) GetURL(c *gin.Context) {
 	shortURL := c.Param("id")
 	originalURL, err := h.service.GetOriginalURL(shortURL)
+	fmt.Println("!!!!!!!!@@@@@@@@@@@@@@@@@", err)
 	if err != nil || originalURL == nil {
+		if errors.Is(err, model.ErrURLHasBeenDeleted) {
+			c.AbortWithStatus(http.StatusGone)
+			return
+		}
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -151,6 +158,23 @@ func (h *restAPIHandler) ListUserURLs(c *gin.Context, baseURL string) {
 		return
 	}
 	c.Data(http.StatusOK, "application/json", response)
+}
+
+func (h *restAPIHandler) BatchRemove(c *gin.Context) {
+	userID := getUserID(c)
+
+	var urls []string
+	err := c.BindJSON(&urls)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	c.Status(http.StatusAccepted)
+	result := h.service.BatchRemove(urls, userID)
+	if result.Errors != nil {
+		logger.LogErrorWithStack(errors.Join(result.Errors...), "processing failed")
+	}
 }
 
 func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {

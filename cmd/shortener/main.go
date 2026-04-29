@@ -64,6 +64,9 @@ func main() {
 	r.GET("/api/user/urls", func(c *gin.Context) {
 		restAPIHandler.ListUserURLs(c, config.ResultBaseURL)
 	})
+	r.DELETE("/api/user/urls", func(c *gin.Context) {
+		restAPIHandler.BatchRemove(c)
+	})
 
 	if err := r.Run(config.AppAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
