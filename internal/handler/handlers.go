@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/ASTeterin/urlshortener/internal/cookie"
 	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
@@ -78,7 +77,6 @@ func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
 func (h *handler) GetURL(c *gin.Context) {
 	shortURL := c.Param("id")
 	originalURL, err := h.service.GetOriginalURL(shortURL)
-	fmt.Println("!!!!!!!!@@@@@@@@@@@@@@@@@", err)
 	if err != nil || originalURL == nil {
 		if errors.Is(err, model.ErrURLHasBeenDeleted) {
 			c.AbortWithStatus(http.StatusGone)
@@ -171,7 +169,6 @@ func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 	}
 
 	result := h.service.BatchRemove(urls, userID)
-	fmt.Println("&&&&&&&&&&&&&", result)
 
 	if result.Errors != nil {
 

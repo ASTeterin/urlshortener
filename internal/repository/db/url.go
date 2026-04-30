@@ -89,7 +89,7 @@ func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 		return model.URL{}, model.ErrURLNotFound
 	}
 	if url.DeletedFlag {
-		return model.URL{}, model.ErrURLHasBeenDeleted
+		return url, model.ErrURLHasBeenDeleted
 	}
 	return url, err
 }

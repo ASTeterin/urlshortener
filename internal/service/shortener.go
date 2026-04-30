@@ -21,8 +21,8 @@ type ShortenerService interface {
 func NewShortenerService(repo model.ShortenerRepository) ShortenerService {
 	return &shortenerService{
 		repo:       repo,
-		maxWorkers: 8,
-		batchSize:  50,
+		maxWorkers: 4,
+		batchSize:  5,
 	}
 }
 
@@ -89,31 +89,34 @@ func (s *shortenerService) BatchRemove(shortURLs []string, userID string) *Delet
 	}
 
 	batches := s.splitIntoBatches(shortURLs, s.batchSize)
+	fmt.Println("len batches", len(batches))
 
-	// Каналы для Fan-In
+	// Каналы
 	batchCh := make(chan []string, len(batches))
 	resultCh := make(chan model.BatchDeleteResult, len(batches))
-	doneCh := make(chan struct{})
-	defer close(doneCh)
+
+	var wg sync.WaitGroup
 
 	// Запуск воркеров
-	var wg sync.WaitGroup
 	for i := 0; i < s.maxWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s.batchWorker(userID, doneCh, batchCh, resultCh)
+			// Воркер сам читает из канала в цикле.
+			// Не нужно читать один элемент перед вызовом функции.
+			for batch := range batchCh {
+				// Логика обработки батча внутри воркера
+				// Предположим, что batchWorker обрабатывает один батч
+				res := s.processBatch(batch, userID)
+				resultCh <- res
+			}
 		}()
 	}
 
 	// Отправка батчей
 	go func() {
 		for _, batch := range batches {
-			select {
-			case <-doneCh:
-				return
-			case batchCh <- batch:
-			}
+			batchCh <- batch
 		}
 		close(batchCh)
 	}()
@@ -129,7 +132,9 @@ func (s *shortenerService) BatchRemove(shortURLs []string, userID string) *Delet
 
 	for result := range resultCh {
 		totalSuccess += result.SuccessCount
-		allErrors = append(allErrors, result.Error)
+		if result.Error != nil {
+			allErrors = append(allErrors, result.Error)
+		}
 	}
 
 	return &DeleteURLResponse{
@@ -187,6 +192,7 @@ func (s *shortenerService) batchWorker(userID string, doneCh chan struct{}, batc
 			}
 			return
 		default:
+			fmt.Println("batchRemove###########", batch)
 			result := s.repo.Remove(batch, userID)
 			resultCh <- result
 		}
@@ -203,4 +209,12 @@ func (s *shortenerService) splitIntoBatches(urls []string, batchSize int) [][]st
 		batches = append(batches, urls[i:end])
 	}
 	return batches
+}
+
+func (s *shortenerService) processBatch(batch []string, userID string) model.BatchDeleteResult {
+	result := s.repo.Remove(batch, userID)
+	return model.BatchDeleteResult{
+		SuccessCount: result.SuccessCount,
+		Error:        result.Error,
+	}
 }
