@@ -170,11 +170,14 @@ func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusAccepted)
 	result := h.service.BatchRemove(urls, userID)
+	fmt.Println("&&&&&&&&&&&&&", result)
+
 	if result.Errors != nil {
+
 		logger.LogErrorWithStack(errors.Join(result.Errors...), "processing failed")
 	}
+	c.Status(http.StatusAccepted)
 }
 
 func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
