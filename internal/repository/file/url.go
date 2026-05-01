@@ -92,9 +92,11 @@ func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
 	countDeleted := 0
 	for _, shortURL := range shortURLs {
 		if url, ok := repo.storage[shortURL]; ok {
-			url.DeletedFlag = true
-			repo.storage[shortURL] = url
-			countDeleted++
+			if !url.DeletedFlag {
+				url.DeletedFlag = true
+				repo.storage[shortURL] = url
+				countDeleted++
+			}
 		}
 	}
 
