@@ -4,11 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
-	"strings"
-
-	"github.com/ASTeterin/urlshortener/internal/model"
 )
 
 type urlRepository struct {
@@ -114,41 +112,41 @@ func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
 	return urls, nil
 }
 
-func (repo *urlRepository) Remove(shortURLs []string, userID string) model.BatchDeleteResult {
+func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
 	if len(shortURLs) == 0 {
-		return model.BatchDeleteResult{
-			SuccessCount: 0,
-			Error:        nil,
-		}
-	}
-	placeholders := make([]string, len(shortURLs))
-	for i := range shortURLs {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		return model.BatchDeleteResult{SuccessCount: 0, Error: nil}
 	}
 
-	query := fmt.Sprintf(`
-        UPDATE urls 
-        SET is_deleted = 1
-        WHERE short_url IN (%s) AND created_by = $%d
-    `, strings.Join(placeholders, ", "), len(shortURLs)+1)
-
-	args := []interface{}{}
+	var filteredURLs []string
 	for _, url := range shortURLs {
-		args = append(args, url)
-	}
-	args = append(args, userID)
-
-	result, err := repo.db.Exec(query, args...)
-	if err != nil {
-		return model.BatchDeleteResult{
-			SuccessCount: 0,
-			Error:        err,
+		if url != "" {
+			filteredURLs = append(filteredURLs, url)
 		}
 	}
+
+	if len(filteredURLs) == 0 {
+		return model.BatchDeleteResult{SuccessCount: 0, Error: nil}
+	}
+
+	query := `
+        UPDATE urls 
+        SET is_deleted = TRUE
+        WHERE short_url = ANY($1)
+    `
+
+	result, err := repo.db.Exec(query, filteredURLs)
+	if err != nil {
+		return model.BatchDeleteResult{SuccessCount: 0, Error: err}
+	}
+
 	affectedRows, err := result.RowsAffected()
+	if err != nil {
+		return model.BatchDeleteResult{SuccessCount: 0, Error: err}
+	}
+
 	return model.BatchDeleteResult{
 		SuccessCount: int(affectedRows),
-		Error:        err,
+		Error:        nil,
 	}
 }
 
