@@ -15,7 +15,7 @@ type ShortenerService interface {
 	GetOriginalURL(shortURL string) (*string, error)
 	ListShortURL(originalURLsMap map[string]string, userID string) (map[string]string, error)
 	ListUserURLs(userID string) (map[string]string, error)
-	BatchRemove(shortURLs []string, userID string) *DeleteURLResponse
+	BatchRemove(shortURLs []string) *DeleteURLResponse
 }
 
 func NewShortenerService(repo model.ShortenerRepository) ShortenerService {
@@ -83,7 +83,7 @@ func (s *shortenerService) ListUserURLs(userID string) (map[string]string, error
 	return result, nil
 }
 
-func (s *shortenerService) BatchRemove(shortURLs []string, userID string) *DeleteURLResponse {
+func (s *shortenerService) BatchRemove(shortURLs []string) *DeleteURLResponse {
 	if len(shortURLs) == 0 {
 		return &DeleteURLResponse{SuccessCount: 0, Errors: nil}
 	}
@@ -124,7 +124,9 @@ func (s *shortenerService) BatchRemove(shortURLs []string, userID string) *Delet
 
 	for result := range resultCh {
 		totalSuccess += result.SuccessCount
-		allErrors = append(allErrors, result.Error)
+		if result.Error != nil {
+			allErrors = append(allErrors, result.Error)
+		}
 	}
 
 	return &DeleteURLResponse{

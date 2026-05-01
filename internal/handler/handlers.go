@@ -159,8 +159,6 @@ func (h *restAPIHandler) ListUserURLs(c *gin.Context, baseURL string) {
 }
 
 func (h *restAPIHandler) BatchRemove(c *gin.Context) {
-	userID := getUserID(c)
-
 	var urls []string
 	err := c.BindJSON(&urls)
 	if err != nil {
@@ -168,10 +166,8 @@ func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 		return
 	}
 
-	result := h.service.BatchRemove(urls, userID)
-
+	result := h.service.BatchRemove(urls)
 	if result.Errors != nil {
-
 		logger.LogErrorWithStack(errors.Join(result.Errors...), "processing failed")
 	}
 	c.Status(http.StatusAccepted)

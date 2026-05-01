@@ -151,3 +151,60 @@ func Test_shortenerService_ListShortURL(t *testing.T) {
 		})
 	}
 }
+
+func Test_shortenerService_BatchRemove(t *testing.T) {
+	var originalURL1 = "http://google.com"
+	var originalURL2 = "http://yandex.ru"
+	var originalURL3 = "http://test.ru"
+	userID := uuid.New()
+	repo, err := file.NewURLRepository("test_batch_delete")
+	s := &shortenerService{
+		repo:       repo,
+		batchSize:  2,
+		maxWorkers: 2,
+	}
+	shortURLMap, err := s.ListShortURL(map[string]string{"uuid1": originalURL1, "uuid2": originalURL2, "uuid3": originalURL3}, userID.String())
+	if err != nil {
+		return
+	}
+	shortURL1 := shortURLMap["uuid1"]
+	shortURL2 := shortURLMap["uuid2"]
+
+	tests := []struct {
+		name        string
+		urls        []string
+		userID      string
+		deletedURLs int
+		wantErr     bool
+		error       error
+	}{
+		{
+			name:        "positive test",
+			urls:        []string{shortURL1, shortURL2},
+			userID:      userID.String(),
+			deletedURLs: 2,
+			wantErr:     false,
+			error:       nil,
+		},
+		{
+			name:        "delete already deleted URL",
+			urls:        []string{shortURL1},
+			userID:      userID.String(),
+			deletedURLs: 0,
+			wantErr:     false,
+			error:       nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := s.BatchRemove(tt.urls)
+			if (result.Errors != nil) != tt.wantErr {
+				t.Errorf("BatchRemove() error = %v, wantErr %v", result.Errors, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(result.SuccessCount, tt.deletedURLs) {
+				t.Errorf("Deleted %d URLs, want %d", result.SuccessCount, tt.deletedURLs)
+			}
+		})
+	}
+}
