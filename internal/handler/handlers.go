@@ -165,12 +165,11 @@ func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-
+	c.Status(http.StatusAccepted)
 	result := h.service.BatchRemove(urls)
 	if result.Errors != nil {
 		logger.LogErrorWithStack(errors.Join(result.Errors...), "processing failed")
 	}
-	c.Status(http.StatusAccepted)
 }
 
 func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
@@ -289,5 +288,5 @@ func returnResponseWithStatus(c *gin.Context, status int, baseURL, shortURL stri
 }
 
 func getUserID(c *gin.Context) string {
-	return c.GetString(string(cookie.UserIDKey))
+	return c.GetString(cookie.GetUserKey())
 }

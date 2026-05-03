@@ -1,118 +1,82 @@
 package cookie
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"strings"
+	"fmt"
+	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
+)
+
+const (
+	cookieName = "Authorization"
+	userIDKey  = "user_id"
 )
 
 var (
-	CookieName   = "Authorization"
-	CookieExpiry = 7 * 24 * time.Hour // 7 дней
+	cookieExpiry = 7 * 24 * time.Hour
 )
 
-type CookieData struct {
-	UserID    string    `json:"user_id"`
-	CreatedAt time.Time `json:"created_at"`
+type Claims struct {
+	UserID string `json:"user_id"`
+	jwt.RegisteredClaims
 }
-
-type CookieContextKey string
-
-const UserIDKey CookieContextKey = "user_id"
 
 func CookieHandler(signingKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var userID string
-		var cookieValue string
+		authHeader := c.GetHeader(cookieName)
+		if authHeader != "" {
+			token, err := jwt.ParseWithClaims(authHeader, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				}
+				return []byte(signingKey), nil
+			})
 
-		authHeader := c.GetHeader(CookieName)
-		if authHeader != "" && verifySignedCookie(authHeader, signingKey) {
-			data, err := parseCookieData(authHeader)
-			if err == nil && !isCookieExpired(data) {
-				userID = data.UserID
+			if err == nil && token.Valid {
+				claims := token.Claims.(*Claims)
+				userID = claims.UserID
+				c.Set(GetUserKey(), userID)
+				c.Next()
+				return
 			}
 		}
 
-		if userID == "" {
-			userID = uuid.New().String()
-			cookieValue = generateSignedCookie(userID, signingKey)
+		userID = uuid.New().String()
+		claims := &Claims{
+			UserID: userID,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+				IssuedAt:  jwt.NewNumericDate(time.Now()),
+				Subject:   userID,
+			},
 		}
 
-		c.Set(string(UserIDKey), userID)
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := token.SignedString([]byte(signingKey))
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
+			return
+		}
+
+		c.Set(GetUserKey(), userID)
 		c.SetCookie(
-			CookieName,
-			cookieValue,
-			int(CookieExpiry.Seconds()),
+			cookieName,
+			tokenString,
+			int(cookieExpiry.Seconds()),
 			"/",
 			"",
 			true,
 			true,
 		)
-		c.Header(CookieName, cookieValue)
+		c.Header(cookieName, tokenString)
 		c.Next()
 	}
 }
 
-func generateSignedCookie(userID, signingKey string) string {
-	data := CookieData{
-		UserID:    userID,
-		CreatedAt: time.Now(),
-	}
-
-	dataBytes, _ := json.Marshal(data)
-	dataStr := base64.URLEncoding.EncodeToString(dataBytes)
-
-	h := hmac.New(sha256.New, []byte(signingKey))
-	h.Write([]byte(dataStr))
-	signature := base64.URLEncoding.EncodeToString(h.Sum(nil))
-
-	return dataStr + "." + signature
-}
-
-func verifySignedCookie(cookieValue, signingKey string) bool {
-	parts := strings.Split(cookieValue, ".")
-	if len(parts) != 2 {
-		return false
-	}
-
-	dataStr, encodedSig := parts[0], parts[1]
-	signature, err := base64.URLEncoding.DecodeString(encodedSig)
-	if err != nil {
-		return false
-	}
-
-	h := hmac.New(sha256.New, []byte(signingKey))
-	h.Write([]byte(dataStr))
-	expectedSig := h.Sum(nil)
-
-	return hmac.Equal(signature, expectedSig)
-}
-
-func parseCookieData(cookieValue string) (*CookieData, error) {
-	parts := strings.Split(cookieValue, ".")
-	if len(parts) != 2 {
-		return nil, nil
-	}
-
-	dataStr := parts[0]
-	dataBytes, err := base64.URLEncoding.DecodeString(dataStr)
-	if err != nil {
-		return nil, err
-	}
-
-	var data CookieData
-	if err := json.Unmarshal(dataBytes, &data); err != nil {
-		return nil, err
-	}
-
-	return &data, nil
-}
-
-func isCookieExpired(data *CookieData) bool {
-	return time.Since(data.CreatedAt) > CookieExpiry
+func GetUserKey() string {
+	return userIDKey
 }

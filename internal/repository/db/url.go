@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ func NewURLRepository(db *sql.DB) model.ShortenerRepository {
 }
 
 func (repo *urlRepository) Store(url model.URL) (*string, error) {
+	ctx := context.TODO()
 	const query = `
         INSERT INTO urls (short_url, original_url, created_by)
         VALUES ($1, $2, $3)
@@ -29,7 +31,7 @@ func (repo *urlRepository) Store(url model.URL) (*string, error) {
     `
 
 	var shortURL string
-	err := repo.db.QueryRow(query, url.Short, url.Original, url.CreatedBy).Scan(&shortURL)
+	err := repo.db.QueryRowContext(ctx, query, url.Short, url.Original, url.CreatedBy).Scan(&shortURL)
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
@@ -45,6 +47,7 @@ func (repo *urlRepository) Store(url model.URL) (*string, error) {
 
 func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 	var result []model.URL
+	ctx := context.TODO()
 	tx, err := repo.db.Begin()
 	if err != nil {
 		return nil, err
@@ -53,7 +56,7 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 	query := `INSERT INTO urls(short_url, original_url, created_by) VALUES ($1, $2, $3) ON CONFLICT (short_url) DO NOTHING RETURNING short_url`
 	for _, url := range urls {
 		var shortURL string
-		err = tx.QueryRow(query, url.Short, url.Original, url.CreatedBy).Scan(&shortURL)
+		err = tx.QueryRowContext(ctx, query, url.Short, url.Original, url.CreatedBy).Scan(&shortURL)
 
 		var pgErr *pgconn.PgError
 		if err != nil {
@@ -79,9 +82,10 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 }
 
 func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
+	ctx := context.TODO()
 	query := `SELECT id, short_url, original_url, is_deleted FROM urls WHERE short_url = $1`
 	url := model.URL{}
-	err := repo.db.QueryRow(query, short).Scan(
+	err := repo.db.QueryRowContext(ctx, query, short).Scan(
 		&url.UUID, &url.Short, &url.Original, &url.DeletedFlag)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.URL{}, model.ErrURLNotFound
@@ -93,9 +97,10 @@ func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 }
 
 func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
+	ctx := context.TODO()
 	query := `SELECT id, short_url, original_url FROM urls WHERE created_by = $1`
 	urls := make([]model.URL, 0)
-	rows, err := repo.db.Query(query, userID)
+	rows, err := repo.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %w", err)
 	}
@@ -109,10 +114,15 @@ func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
 		}
 		urls = append(urls, url)
 	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	return urls, nil
 }
 
 func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
+	ctx := context.TODO()
 	if len(shortURLs) == 0 {
 		return model.BatchDeleteResult{SuccessCount: 0, Error: nil}
 	}
@@ -134,7 +144,7 @@ func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
         WHERE short_url = ANY($1)
     `
 
-	result, err := repo.db.Exec(query, filteredURLs)
+	result, err := repo.db.ExecContext(ctx, query, filteredURLs)
 	if err != nil {
 		return model.BatchDeleteResult{SuccessCount: 0, Error: err}
 	}
@@ -151,8 +161,9 @@ func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
 }
 
 func (repo *urlRepository) getStoredShortURL(originalURL string) (string, error) {
+	ctx := context.TODO()
 	const checkQuery = `SELECT short_url FROM urls WHERE original_url = $1`
 	var existingShortURL string
-	err := repo.db.QueryRow(checkQuery, originalURL).Scan(&existingShortURL)
+	err := repo.db.QueryRowContext(ctx, checkQuery, originalURL).Scan(&existingShortURL)
 	return existingShortURL, err
 }
