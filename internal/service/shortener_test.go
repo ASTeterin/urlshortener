@@ -4,10 +4,8 @@ import (
 	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
-	"time"
 )
 
 const shortURL = "qWeRtYuI"
@@ -199,13 +197,14 @@ func Test_shortenerService_BatchRemove(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s.BatchRemove(tt.urls)
-			time.Sleep(5 * time.Second)
-			shortURLMap, err = s.ListShortURL(map[string]string{"uuid1": originalURL1, "uuid2": originalURL2, "uuid3": originalURL3}, userID.String())
-			if err != nil {
+			result := s.BatchRemove(tt.urls)
+			if (result.Errors != nil) != tt.wantErr {
+				t.Errorf("BatchRemove() error = %v, wantErr %v", result.Errors, tt.wantErr)
 				return
 			}
-			assert.Len(t, 3-len(shortURLMap), tt.deletedURLs)
+			if !reflect.DeepEqual(result.SuccessCount, tt.deletedURLs) {
+				t.Errorf("Deleted %d URLs, want %d", result.SuccessCount, tt.deletedURLs)
+			}
 		})
 	}
 }
