@@ -40,7 +40,7 @@ func main() {
 			log.Fatalf("failed to run server: %v", err)
 		}
 	}
-	shortenerService := service.NewShortenerService(repo)
+	shortenerService := service.NewShortenerService(repo, config.MaxWorkers)
 	h := handler.NewHandler(shortenerService, dbConn)
 	restAPIHandler := handler.NewRestAPIHandler(shortenerService)
 

@@ -18,10 +18,10 @@ type ShortenerService interface {
 	BatchRemove(shortURLs []string) *DeleteURLResponse
 }
 
-func NewShortenerService(repo model.ShortenerRepository) ShortenerService {
+func NewShortenerService(repo model.ShortenerRepository, maxWorkers int) ShortenerService {
 	return &shortenerService{
 		repo:       repo,
-		maxWorkers: 8,
+		maxWorkers: maxWorkers,
 		batchSize:  50,
 	}
 }
