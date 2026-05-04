@@ -165,11 +165,12 @@ func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
+
+	go func() {
+		h.processBatchRemoveAsync(urls)
+	}()
+
 	c.Status(http.StatusAccepted)
-	result := h.service.BatchRemove(urls)
-	if result.Errors != nil {
-		logger.LogErrorWithStack(errors.Join(result.Errors...), "processing failed")
-	}
 }
 
 func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
@@ -268,6 +269,15 @@ func (h *handler) CheckDBConnection(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func (h *restAPIHandler) processBatchRemoveAsync(urls []string) {
+	result := h.service.BatchRemove(urls)
+
+	if result != nil && len(result.Errors) > 0 {
+		err := errors.Join(result.Errors...)
+		logger.LogErrorWithStack(err, "processing failed")
+	}
 }
 
 func returnResponseWithStatus(c *gin.Context, status int, baseURL, shortURL string) {

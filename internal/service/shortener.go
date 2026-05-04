@@ -10,6 +10,8 @@ import (
 	"github.com/ASTeterin/urlshortener/internal/model"
 )
 
+const batchSize = 50
+
 type ShortenerService interface {
 	GetShortURL(originalURL, userID string) (*string, error)
 	GetOriginalURL(shortURL string) (*string, error)
@@ -22,7 +24,7 @@ func NewShortenerService(repo model.ShortenerRepository, maxWorkers int) Shorten
 	return &shortenerService{
 		repo:       repo,
 		maxWorkers: maxWorkers,
-		batchSize:  50,
+		batchSize:  batchSize,
 	}
 }
 
@@ -87,32 +89,34 @@ func (s *shortenerService) BatchRemove(shortURLs []string) *DeleteURLResponse {
 	if len(shortURLs) == 0 {
 		return &DeleteURLResponse{SuccessCount: 0, Errors: nil}
 	}
+
 	batches := s.splitIntoBatches(shortURLs, s.batchSize)
-
-	batchCh := make(chan []string, len(batches))
-	resultCh := make(chan model.BatchDeleteResult, len(batches))
-	doneCh := make(chan struct{})
-	defer close(doneCh)
-
-	var wg sync.WaitGroup
-	for i := 0; i < s.maxWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			s.batchWorker(doneCh, batchCh, resultCh)
-		}()
+	if len(batches) == 0 {
+		return &DeleteURLResponse{SuccessCount: 0, Errors: nil}
 	}
 
-	go func() {
-		for _, batch := range batches {
+	sem := NewSemaphore(s.maxWorkers)
+	resultCh := make(chan model.BatchDeleteResult, len(batches))
+
+	var wg sync.WaitGroup
+	for _, batch := range batches {
+		wg.Add(1)
+
+		go func(batch []string) {
+			defer wg.Done()
+
+			// Захват семафора (ограничивает параллелизм)
+			sem.Acquire()
+			defer sem.Release()
+
+			result := s.repo.Remove(batch)
+
 			select {
-			case <-doneCh:
-				return
-			case batchCh <- batch:
+			case resultCh <- result:
+			default:
 			}
-		}
-		close(batchCh)
-	}()
+		}(batch)
+	}
 
 	go func() {
 		wg.Wait()
@@ -170,22 +174,6 @@ func (s *shortenerService) generateShortURL() string {
 			if errors.Is(err, model.ErrURLNotFound) {
 				return value
 			}
-		}
-	}
-}
-
-func (s *shortenerService) batchWorker(doneCh chan struct{}, batchCh <-chan []string, resultCh chan<- model.BatchDeleteResult) {
-	for batch := range batchCh {
-		select {
-		case <-doneCh:
-			resultCh <- model.BatchDeleteResult{
-				SuccessCount: 0,
-				Error:        nil,
-			}
-			return
-		default:
-			result := s.repo.Remove(batch)
-			resultCh <- result
 		}
 	}
 }
