@@ -19,18 +19,21 @@ type Config struct {
 	DBConnStr     string
 	SigningKey    string
 	MaxWorkers    int
+	AuditFilePath string
+	AuditUrl      string
 }
 
 func ParseFlags() Config {
-	var appAddr string
-	var resultBaseURL string
-	var fileStoragePath string
-	var dbConnectionString string
+	var (
+		appAddr, resultBaseURL, fileStoragePath, dbConnectionString, auditFilePath, auditServiceURL string
+	)
 	var signingKey = defaultSigningKey
 	flag.StringVar(&appAddr, "a", ":8080", "port to run server")
 	flag.StringVar(&resultBaseURL, "b", "http://localhost:8080", "base url for short url")
 	flag.StringVar(&fileStoragePath, "f", "filestorage.txt", "file storage path")
 	flag.StringVar(&dbConnectionString, "d", "", "database DSN")
+	flag.StringVar(&auditFilePath, "audit-file", "", "audit file path")
+	flag.StringVar(&auditServiceURL, "audit-url", "", "audit service url")
 	flag.Parse()
 
 	if envAppAddr, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
@@ -48,6 +51,12 @@ func ParseFlags() Config {
 	if key, exist := os.LookupEnv("SIGNING_KEY"); exist {
 		signingKey = key
 	}
+	if envAuditFilePath, exist := os.LookupEnv("AUDIT_FILE"); exist {
+		auditFilePath = envAuditFilePath
+	}
+	if envAuditFileURL, exist := os.LookupEnv("AUDIT_URL"); exist {
+		auditServiceURL = envAuditFileURL
+	}
 	countWorkers := getEnvInt("MAX_WORKERS", maxWorkers)
 
 	return Config{
@@ -57,6 +66,8 @@ func ParseFlags() Config {
 		DBConnStr:     dbConnectionString,
 		SigningKey:    signingKey,
 		MaxWorkers:    countWorkers,
+		AuditFilePath: auditFilePath,
+		AuditUrl:      auditServiceURL,
 	}
 }
 

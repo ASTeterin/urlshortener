@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/ASTeterin/urlshortener/internal/audit"
 	"github.com/ASTeterin/urlshortener/internal/cookie"
 	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
@@ -53,18 +54,20 @@ type ListUserURLItem struct {
 }
 
 type handler struct {
-	service service.ShortenerService
-	dbConn  *sql.DB
+	service      service.ShortenerService
+	dbConn       *sql.DB
+	auditManager *audit.Manager
 }
 
 type restAPIHandler struct {
 	service service.ShortenerService
 }
 
-func NewHandler(service service.ShortenerService, dbConn *sql.DB) Handler {
+func NewHandler(service service.ShortenerService, dbConn *sql.DB, mngr *audit.Manager) Handler {
 	return &handler{
-		service: service,
-		dbConn:  dbConn,
+		service:      service,
+		dbConn:       dbConn,
+		auditManager: mngr,
 	}
 }
 
@@ -252,6 +255,9 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
+
+	notify(h.auditManager, userID, originalURL, audit.Shorten)
+
 	shortURL, err2 := url.JoinPath(baseURL, *short)
 	if err2 != nil {
 		logger.LogErrorWithStack(err2, "Failed to join URL path")
@@ -299,4 +305,14 @@ func returnResponseWithStatus(c *gin.Context, status int, baseURL, shortURL stri
 
 func getUserID(c *gin.Context) string {
 	return c.GetString(cookie.GetUserKey())
+}
+
+func notify(mngr *audit.Manager, userID, originalURL string, action audit.Action) {
+	event := audit.Event{
+		TS:     time.Now().Unix(),
+		Action: string(action),
+		UserID: userID,
+		URL:    originalURL,
+	}
+	mngr.Notify(event)
 }

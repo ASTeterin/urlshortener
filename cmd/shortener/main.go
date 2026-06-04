@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"github.com/ASTeterin/urlshortener/internal/audit"
 	"github.com/ASTeterin/urlshortener/internal/compress"
 	appConfig "github.com/ASTeterin/urlshortener/internal/config"
 	"github.com/ASTeterin/urlshortener/internal/cookie"
@@ -40,8 +41,14 @@ func main() {
 			log.Fatalf("failed to run server: %v", err)
 		}
 	}
+
+	mngr, err := initAuditManager(config)
+	if err != nil {
+		log.Fatalf("failed to init audit: %v", err)
+	}
+
 	shortenerService := service.NewShortenerService(repo, config.MaxWorkers)
-	h := handler.NewHandler(shortenerService, dbConn)
+	h := handler.NewHandler(shortenerService, dbConn, mngr)
 	restAPIHandler := handler.NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
@@ -101,4 +108,20 @@ func migrateDB(conn *sql.DB) {
 			log.Fatal(err)
 		}
 	}
+}
+
+func initAuditManager(config appConfig.Config) (*audit.Manager, error) {
+	mgr := audit.NewAuditManager()
+
+	if config.AuditFilePath != "" {
+		r, err := audit.NewFileReceiver(config.AuditFilePath)
+		if err != nil {
+			return nil, err
+		}
+		mgr.AddReceiver(r)
+	}
+	if config.AuditUrl != "" {
+		mgr.AddReceiver(audit.NewRemoteReceiver(config.AuditUrl))
+	}
+	return mgr, nil
 }
