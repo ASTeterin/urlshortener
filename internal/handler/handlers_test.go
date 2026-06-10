@@ -253,7 +253,7 @@ func setupRouter(storageFile string) *gin.Engine {
 		panic(err)
 	}
 	shortenerService := service.NewShortenerService(repo, 8)
-	h := NewHandler(shortenerService, nil)
+	h := NewHandler(shortenerService, nil, nil)
 	restAPIHandler := NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
