@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"github.com/ASTeterin/urlshortener/internal/logger"
 	"sync"
 )
 
@@ -43,7 +44,7 @@ func (m *Manager) Notify(event Event) {
 	for _, r := range m.receivers {
 		go func(recv Receiver) {
 			if err := recv.Notify(event); err != nil {
-				// Логирование ошибки аудита (не блокирует основной поток)
+				logger.LogErrorWithStack(err, "notify error")
 			}
 		}(r)
 	}

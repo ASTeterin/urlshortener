@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/ASTeterin/urlshortener/internal/audit"
 	"github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/gin-gonic/gin"
 	"io"
@@ -253,7 +254,9 @@ func setupRouter(storageFile string) *gin.Engine {
 		panic(err)
 	}
 	shortenerService := service.NewShortenerService(repo, 8)
-	h := NewHandler(shortenerService, nil, nil)
+
+	mngr := audit.NewAuditManager()
+	h := NewHandler(shortenerService, nil, mngr)
 	restAPIHandler := NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
