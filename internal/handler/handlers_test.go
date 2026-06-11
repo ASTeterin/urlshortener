@@ -3,18 +3,21 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/ASTeterin/urlshortener/internal/audit"
-	"github.com/ASTeterin/urlshortener/internal/repository/file"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/ASTeterin/urlshortener/internal/service"
+	"github.com/gin-gonic/gin"
+
+	"github.com/ASTeterin/urlshortener/internal/audit"
+	"github.com/ASTeterin/urlshortener/internal/repository/file"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ASTeterin/urlshortener/internal/service"
 )
 
 const (

@@ -5,16 +5,18 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"github.com/ASTeterin/urlshortener/internal/audit"
 	"github.com/ASTeterin/urlshortener/internal/cookie"
 	"github.com/ASTeterin/urlshortener/internal/logger"
 	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/service"
-	"github.com/gin-gonic/gin"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"net/http"
-	"net/url"
-	"time"
 )
 
 type Handler interface {

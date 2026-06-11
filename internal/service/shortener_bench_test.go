@@ -2,9 +2,10 @@ package service
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"sync"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/ASTeterin/urlshortener/internal/model"
 )

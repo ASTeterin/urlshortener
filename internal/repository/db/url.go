@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/ASTeterin/urlshortener/internal/model"
+
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/ASTeterin/urlshortener/internal/model"
 )
 
 type urlRepository struct {

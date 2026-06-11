@@ -2,9 +2,10 @@ package config
 
 import (
 	"flag"
-	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (

@@ -1,11 +1,13 @@
 package service
 
 import (
-	"github.com/ASTeterin/urlshortener/internal/model"
-	"github.com/ASTeterin/urlshortener/internal/repository/file"
-	"github.com/google/uuid"
 	"reflect"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/ASTeterin/urlshortener/internal/model"
+	"github.com/ASTeterin/urlshortener/internal/repository/file"
 )
 
 const shortURL = "qWeRtYuI"

@@ -3,6 +3,10 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"log"
+	"os"
+	"path/filepath"
+
 	"github.com/ASTeterin/urlshortener/internal/audit"
 	"github.com/ASTeterin/urlshortener/internal/compress"
 	appConfig "github.com/ASTeterin/urlshortener/internal/config"
@@ -17,9 +21,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"log"
-	"os"
-	"path/filepath"
 )
 
 func main() {

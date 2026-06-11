@@ -1,8 +1,9 @@
 package audit
 
 import (
-	"github.com/ASTeterin/urlshortener/internal/logger"
 	"sync"
+
+	"github.com/ASTeterin/urlshortener/internal/logger"
 )
 
 type Event struct {
