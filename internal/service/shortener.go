@@ -12,6 +12,11 @@ import (
 
 const batchSize = 50
 
+var (
+	urlRandom = rand.New(rand.NewSource(time.Now().UnixNano()))
+	randMu    sync.Mutex
+)
+
 type ShortenerService interface {
 	GetShortURL(originalURL, userID string) (*string, error)
 	GetOriginalURL(shortURL string) (*string, error)
@@ -50,7 +55,7 @@ func (s *shortenerService) GetShortURL(originalURL, userID string) (*string, err
 }
 
 func (s *shortenerService) ListShortURL(originalURLsMap map[string]string, userID string) (map[string]string, error) {
-	result := make(map[string]string)
+	result := make(map[string]string, len(originalURLsMap))
 	urls := s.generateModels(originalURLsMap, userID)
 	storedURLs, err := s.repo.StoreAll(urls)
 	if err != nil {
@@ -77,7 +82,7 @@ func (s *shortenerService) ListUserURLs(userID string) (map[string]string, error
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[string]string)
+	result := make(map[string]string, len(storedURLs))
 	for _, url := range storedURLs {
 		result[url.Original] = url.Short
 	}
@@ -105,16 +110,11 @@ func (s *shortenerService) BatchRemove(shortURLs []string) *DeleteURLResponse {
 		go func(batch []string) {
 			defer wg.Done()
 
-			// Захват семафора (ограничивает параллелизм)
 			sem.Acquire()
 			defer sem.Release()
 
 			result := s.repo.Remove(batch)
-
-			select {
-			case resultCh <- result:
-			default:
-			}
+			resultCh <- result
 		}(batch)
 	}
 
@@ -162,12 +162,14 @@ func (s *shortenerService) generateModels(originalURLsMap map[string]string, use
 }
 
 func (s *shortenerService) generateShortURL() string {
-	var urlRandom = rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, model.ShortURLLen)
 	for {
-		b := make([]byte, model.ShortURLLen)
+		randMu.Lock()
 		for i := range b {
 			b[i] = model.Letters[urlRandom.Intn(len(model.Letters))]
 		}
+		randMu.Unlock()
+
 		value := string(b)
 		_, err := s.repo.GetByShort(value)
 		if err != nil {
@@ -179,7 +181,9 @@ func (s *shortenerService) generateShortURL() string {
 }
 
 func (s *shortenerService) splitIntoBatches(urls []string, batchSize int) [][]string {
-	var batches [][]string
+	expectedBatches := (len(urls) + batchSize - 1) / batchSize
+	batches := make([][]string, 0, expectedBatches)
+
 	for i := 0; i < len(urls); i += batchSize {
 		end := i + batchSize
 		if end > len(urls) {
