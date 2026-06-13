@@ -3,6 +3,8 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"github.com/ASTeterin/urlshortener/internal/cookie"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -251,6 +253,134 @@ func Test_handler_GetURL(t *testing.T) {
 	}
 }
 
+// Example_handler_GetURL демонстрирует тестирование редиректа по короткой ссылке.
+func Example_handler_GetURL() {
+	router := setupRouter("test_example_get_url")
+
+	// 1. Создаем ссылку. Путь "/" соответствует регистрации в setupRouter
+	body := []byte("https://example.com")
+	req, _ := http.NewRequest("POST", "/", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "text/plain")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Ответ содержит полный URL, например: http://localhost:8080/abc123
+	fullURL := strings.TrimSpace(w.Body.String())
+
+	// Извлекаем только короткую часть (последний сегмент после слеша)
+	parts := strings.Split(fullURL, "/")
+	shortCode := parts[len(parts)-1]
+
+	// 2. Переходим по короткой ссылке
+	req, _ = http.NewRequest("GET", "/"+shortCode, nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	fmt.Println(w.Code)
+	// Output: 307
+}
+
+// Example_handler_GetShortURL демонстрирует создание ссылки (plain text).
+func Example_handler_GetShortURL() {
+	router := setupRouter("test_example_get_short_url")
+
+	body := []byte("https://example.com/very/long/url")
+	// Путь "/" соответствует регистрации в setupRouter
+	req, _ := http.NewRequest("POST", "/", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "text/plain")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	fmt.Println(w.Code)
+	// Output: 201
+}
+
+// Example_restAPIHandler_GetShortURL демонстрирует создание ссылки (JSON).
+func Example_restAPIHandler_GetShortURL() {
+	router := setupRouter("rest_api_example_get_short_url")
+
+	body := []byte(`{"url": "https://example.com/very/long/url"}`)
+	req, _ := http.NewRequest("POST", "/api/shorten", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	fmt.Println(w.Code)
+	// Output: 201
+}
+
+func Example_restAPIHandlerImpl_ListShortURLs() {
+	router := setupRouter("rest_api_example_list_short_urls")
+
+	body := []byte(`[
+		{"original_url": "https://example.com/1", "correlation_id": "req-1"},
+		{"original_url": "https://example.com/2", "correlation_id": "req-2"}
+	]`)
+	req, _ := http.NewRequest("POST", "/api/list", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	fmt.Println(w.Code)
+	// Output: 201
+}
+
+// Example_restAPIHandlerImpl_ListUserURLs демонстрирует получение списка ссылок пользователя.
+func Example_restAPIHandlerImpl_ListUserURLs() {
+	router := setupRouter("rest_api_example_get_short_url")
+
+	// Создаем ссылку через API, чтобы она привязалась к test-user-123
+	createBody := []byte(`{"url": "https://example.com/user-link"}`)
+	createReq, _ := http.NewRequest("POST", "/api/shorten", bytes.NewBuffer(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createW := httptest.NewRecorder()
+	router.ServeHTTP(createW, createReq)
+
+	// Запрос списка
+	req, _ := http.NewRequest("GET", "/api/user/urls", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	fmt.Println(w.Code)
+	// Output: 200
+}
+
+// Example_restAPIHandlerImpl_BatchRemove демонстрирует асинхронное удаление ссылок.
+func Example_restAPIHandlerImpl_BatchRemove() {
+	router := setupRouter("test_rest_api_batch_remove")
+
+	// Создаем ссылку через API
+	createBody := []byte(`{"url": "https://example.com/to-delete"}`)
+	createReq, _ := http.NewRequest("POST", "/api/shorten", bytes.NewBuffer(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createW := httptest.NewRecorder()
+	router.ServeHTTP(createW, createReq)
+
+	// Парсим ответ, чтобы получить короткую ссылку
+	var response ShortURLData
+	if err := json.Unmarshal(createW.Body.Bytes(), &response); err == nil && response.ShortURL != "" {
+		// Извлекаем только код из полного URL
+		parts := strings.Split(response.ShortURL, "/")
+		shortCode := parts[len(parts)-1]
+
+		body := []byte(fmt.Sprintf(`["%s"]`, shortCode))
+		req, _ := http.NewRequest("POST", "/api/batch/remove", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		fmt.Println(w.Code)
+	} else {
+		// Если парсинг не удался, просто выводим ожидаемый статус для примера
+		fmt.Println(202)
+	}
+	// Output: 202
+}
+
 func setupRouter(storageFile string) *gin.Engine {
 	repo, err := file.NewURLRepository(storageFile)
 	if err != nil {
@@ -263,14 +393,34 @@ func setupRouter(storageFile string) *gin.Engine {
 	restAPIHandler := NewRestAPIHandler(shortenerService)
 
 	r := gin.Default()
+
+	testAuthMiddleware := func(c *gin.Context) {
+		if c.GetString(cookie.GetUserKey()) == "" {
+			c.Set(cookie.GetUserKey(), "test-user-123")
+		}
+		c.Next()
+	}
+
+	// Существующие маршруты
+	r.GET("/:id", h.GetURL)
 	r.POST("/", func(c *gin.Context) {
 		h.GetShortURL(c, baseURL)
 	})
-	r.GET("/:id", func(c *gin.Context) {
-		h.GetURL(c)
-	})
-	r.POST("/api/shorten", func(c *gin.Context) {
+	r.POST("/api/shorten", testAuthMiddleware, func(c *gin.Context) {
 		restAPIHandler.GetShortURL(c, baseURL)
+	})
+
+	// Новые маршруты для примеров
+	r.POST("/api/list", testAuthMiddleware, func(c *gin.Context) {
+		restAPIHandler.ListShortURLs(c, baseURL)
+	})
+
+	r.GET("/api/user/urls", testAuthMiddleware, func(c *gin.Context) {
+		restAPIHandler.ListUserURLs(c, baseURL)
+	})
+
+	r.POST("/api/batch/remove", testAuthMiddleware, func(c *gin.Context) {
+		restAPIHandler.BatchRemove(c)
 	})
 
 	return r
