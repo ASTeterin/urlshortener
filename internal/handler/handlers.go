@@ -19,37 +19,63 @@ import (
 	"github.com/ASTeterin/urlshortener/internal/service"
 )
 
+// Handler defines the HTTP handlers for the main URL shortener API.
 type Handler interface {
+	// GetURL redirects to the original URL based on the short code.
+	// Returns 307 Temporary Redirect on success, 410 Gone if deleted, 400 Bad Request otherwise.
 	GetURL(c *gin.Context)
+
+	// GetShortURL creates a short URL from a plain text URL in the request body.
+	// Returns 201 Created with the full short URL, 409 Conflict if duplicate, 400/500 on error.
 	GetShortURL(c *gin.Context, baseURL string)
+
+	// CheckDBConnection verifies the database connectivity.
+	// Returns 200 OK on success, 500 Internal Server Error on failure.
 	CheckDBConnection(c *gin.Context)
 }
 
+// RestAPIHandler defines the HTTP handlers for the REST API.
 type RestAPIHandler interface {
+	// GetShortURL creates a short URL from a JSON payload containing the original URL.
+	// Returns 201 Created or 409 Conflict with JSON response, 400 on validation error.
 	GetShortURL(c *gin.Context, baseURL string)
+
+	// ListShortURLs resolves a batch of original URLs to their short counterparts.
+	// Returns 201 Created with JSON array mapping correlation IDs to short URLs, 400 on error.
 	ListShortURLs(c *gin.Context, baseURL string)
+
+	// ListUserURLs retrieves all short URLs created by the authenticated user.
+	// Returns 200 OK with JSON array, 204 No Content if empty, 400/500 on error.
 	ListUserURLs(c *gin.Context, baseURL string)
+
+	// BatchRemove initiates asynchronous deletion of a list of short URLs.
+	// Returns 202 Accepted immediately. Errors are logged asynchronously.
 	BatchRemove(c *gin.Context)
 }
 
+// URLData represents the JSON request body for creating a short URL.
 type URLData struct {
 	URL string `json:"url"`
 }
 
+// ShortURLData represents the JSON response for a created short URL.
 type ShortURLData struct {
 	ShortURL string `json:"result"`
 }
 
+// ListURLItem represents an item in the batch request for listing short URLs.
 type ListURLItem struct {
 	URL           string `json:"original_url"`
 	CorrelationID string `json:"correlation_id"`
 }
 
+// ListShortURLItem represents an item in the batch response for listing short URLs.
 type ListShortURLItem struct {
 	CorrelationID string `json:"correlation_id"`
 	ShortURL      string `json:"short_url"`
 }
 
+// ListUserURLItem represents a user's URL mapping in the response.
 type ListUserURLItem struct {
 	OriginalURL string `json:"original_url"`
 	ShortURL    string `json:"short_url"`
@@ -65,6 +91,7 @@ type restAPIHandler struct {
 	service service.ShortenerService
 }
 
+// NewHandler creates a new instance of the main HTTP handler.
 func NewHandler(service service.ShortenerService, dbConn *sql.DB, mngr *audit.Manager) Handler {
 	return &handler{
 		service:      service,
@@ -73,12 +100,15 @@ func NewHandler(service service.ShortenerService, dbConn *sql.DB, mngr *audit.Ma
 	}
 }
 
+// NewRestAPIHandler creates a new instance of the REST API HTTP handler.
 func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
 	return &restAPIHandler{
 		service: service,
 	}
 }
 
+// GetURL redirects to the original URL based on the short code.
+// Returns 307 Temporary Redirect on success, 410 Gone if deleted, 400 Bad Request otherwise.
 func (h *handler) GetURL(c *gin.Context) {
 	shortURL := c.Param("id")
 	originalURL, err := h.service.GetOriginalURL(shortURL)
@@ -96,6 +126,8 @@ func (h *handler) GetURL(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, *originalURL)
 }
 
+// GetShortURL creates a short URL from a JSON payload containing the original URL.
+// Returns 201 Created or 409 Conflict with JSON response, 400 on validation error.
 func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
 	var urlData URLData
 	err := c.BindJSON(&urlData)
@@ -128,6 +160,8 @@ func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
 	returnResponseWithStatus(c, http.StatusCreated, baseURL, *shortURL)
 }
 
+// ListUserURLs retrieves all short URLs created by the authenticated user.
+// Returns 200 OK with JSON array, 204 No Content if empty, 400/500 on error.
 func (h *restAPIHandler) ListUserURLs(c *gin.Context, baseURL string) {
 	userID := getUserID(c)
 	shortURLsMap, err := h.service.ListUserURLs(userID)
@@ -163,6 +197,8 @@ func (h *restAPIHandler) ListUserURLs(c *gin.Context, baseURL string) {
 	c.Data(http.StatusOK, "application/json", response)
 }
 
+// BatchRemove initiates asynchronous deletion of a list of short URLs.
+// Returns 202 Accepted immediately. Errors are logged asynchronously.
 func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 	var urls []string
 	err := c.BindJSON(&urls)
@@ -178,6 +214,8 @@ func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 	c.Status(http.StatusAccepted)
 }
 
+// ListShortURLs resolves a batch of original URLs to their short counterparts.
+// Returns 201 Created with JSON array mapping correlation IDs to short URLs, 400 on error.
 func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
 	var urls []ListURLItem
 	err := c.BindJSON(&urls)
@@ -228,6 +266,8 @@ func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
 	c.Data(http.StatusCreated, "application/json", response)
 }
 
+// GetShortURL creates a short URL from a plain text URL in the request body.
+// Returns 201 Created with the full short URL, 409 Conflict if duplicate, 400/500 on error.
 func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 	var originalURL string
 	err := c.BindPlain(&originalURL)
@@ -269,6 +309,8 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 	c.Data(http.StatusCreated, "text/plain", []byte(shortURL))
 }
 
+// CheckDBConnection verifies the database connectivity.
+// Returns 200 OK on success, 500 Internal Server Error on failure.
 func (h *handler) CheckDBConnection(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
