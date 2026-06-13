@@ -7,6 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+
 	"github.com/ASTeterin/urlshortener/internal/audit"
 	"github.com/ASTeterin/urlshortener/internal/compress"
 	appConfig "github.com/ASTeterin/urlshortener/internal/config"
@@ -17,10 +22,6 @@ import (
 	dbrepo "github.com/ASTeterin/urlshortener/internal/repository/db"
 	filerepo "github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/ASTeterin/urlshortener/internal/service"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {

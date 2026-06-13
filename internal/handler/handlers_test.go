@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/ASTeterin/urlshortener/internal/cookie"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/ASTeterin/urlshortener/internal/cookie"
 
 	"github.com/gin-gonic/gin"
 
