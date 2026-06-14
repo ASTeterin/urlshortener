@@ -61,7 +61,7 @@ func (s *shortenerService) ListShortURL(originalURLsMap map[string]string, userI
 	if err != nil {
 		return nil, err
 	}
-	storedURLsMap := make(map[string]string)
+	storedURLsMap := make(map[string]string, len(storedURLs))
 	for _, url := range storedURLs {
 		storedURLsMap[url.Original] = url.Short
 	}
