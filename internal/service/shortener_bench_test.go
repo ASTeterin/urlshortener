@@ -10,52 +10,60 @@ import (
 )
 
 type mockRepo struct {
-	mu    sync.RWMutex
-	urls  map[string]model.URL
-	short map[string]model.URL
+	mu   sync.RWMutex
+	data map[string]model.URL // Храним только по короткой ссылке
+}
+
+func NewMockRepository() *mockRepo {
+	return &mockRepo{
+		data: make(map[string]model.URL, 10000),
+	}
 }
 
 func (m *mockRepo) Store(u model.URL) (*string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.urls[u.Original] = u
-	m.short[u.Short] = u
+	m.data[u.Short] = u // Одна вставка
 	return &u.Short, nil
 }
+
 func (m *mockRepo) StoreAll(urls []model.URL) ([]model.URL, error) {
-	for _, u := range urls {
-		m.Store(u)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i := range urls {
+		m.data[urls[i].Short] = urls[i]
 	}
 	return urls, nil
 }
+
 func (m *mockRepo) GetByShort(short string) (model.URL, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	u, ok := m.short[short]
-	if !ok {
-		return model.URL{}, model.ErrURLNotFound
+	if u, ok := m.data[short]; ok {
+		return u, nil
 	}
-	return u, nil
+	return model.URL{}, model.ErrURLNotFound
 }
+
 func (m *mockRepo) ListByUserID(userID string) ([]model.URL, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var res []model.URL
-	for _, u := range m.urls {
+	res := make([]model.URL, 0, len(m.data)) // Предварительный размер
+	for _, u := range m.data {
 		if u.CreatedBy == userID {
 			res = append(res, u)
 		}
 	}
 	return res, nil
 }
+
 func (m *mockRepo) Remove(shorts []string) model.BatchDeleteResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var success int
 	for _, s := range shorts {
-		if _, ok := m.short[s]; ok {
-			delete(m.short, s)
-			delete(m.urls, m.short[s].Original) // упрощённо
+		if _, ok := m.data[s]; ok {
+			delete(m.data, s)
 			success++
 		}
 	}
@@ -63,7 +71,7 @@ func (m *mockRepo) Remove(shorts []string) model.BatchDeleteResult {
 }
 
 func newMockService() *shortenerService {
-	return &shortenerService{repo: &mockRepo{urls: make(map[string]model.URL), short: make(map[string]model.URL)}, maxWorkers: 4, batchSize: 50}
+	return &shortenerService{repo: &mockRepo{data: make(map[string]model.URL)}, maxWorkers: 4, batchSize: 50}
 }
 
 func BenchmarkGetShortURL(b *testing.B) {
