@@ -17,7 +17,7 @@ type Config struct {
 	ServerAddr    string
 	ResultBaseURL string
 	FilePath      string
-	DBConnStr     string
+	DatabaseURL   string
 	SigningKey    string
 	MaxWorkers    int
 	AuditFilePath string
@@ -64,7 +64,7 @@ func ParseFlags() Config {
 		ServerAddr:    appAddr,
 		ResultBaseURL: resultBaseURL,
 		FilePath:      fileStoragePath,
-		DBConnStr:     dbConnectionString,
+		DatabaseURL:   dbConnectionString,
 		SigningKey:    signingKey,
 		MaxWorkers:    countWorkers,
 		AuditFilePath: auditFilePath,

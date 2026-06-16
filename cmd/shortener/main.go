@@ -26,15 +26,15 @@ import (
 
 func main() {
 	config := appConfig.ParseFlags()
-	if config.DBConnStr == "" && config.FilePath == "" {
+	if config.DatabaseURL == "" && config.FilePath == "" {
 		log.Fatal("configuration error: neither database URL nor file path is provided")
 	}
 
 	var repo model.ShortenerRepository
 	var dbConn *sql.DB
 
-	if config.DBConnStr != "" {
-		dbConn = initDatabase(config.DBConnStr)
+	if config.DatabaseURL != "" {
+		dbConn = initDatabase(config.DatabaseURL)
 		repo = dbrepo.NewURLRepository(dbConn)
 	} else {
 		var err error
