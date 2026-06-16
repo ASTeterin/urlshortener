@@ -26,21 +26,21 @@ import (
 
 func main() {
 	config := appConfig.ParseFlags()
-	var dbConn *sql.DB
+	if config.DBConnStr == "" && config.FilePath == "" {
+		log.Fatal("configuration error: neither database URL nor file path is provided")
+	}
+
 	var repo model.ShortenerRepository
-	var err error
+	var dbConn *sql.DB
+
 	if config.DBConnStr != "" {
-		dbConn, err = sql.Open("pgx", config.DBConnStr)
-		if err != nil {
-			log.Fatalf("failed to connect to database: %v", err)
-		}
-		defer dbConn.Close()
-		migrateDB(dbConn)
+		dbConn = initDatabase(config.DBConnStr)
 		repo = dbrepo.NewURLRepository(dbConn)
 	} else {
+		var err error
 		repo, err = filerepo.NewURLRepository(config.FilePath)
 		if err != nil {
-			log.Fatalf("failed to run server: %v", err)
+			log.Fatalf("failed to init file repository: %v", err)
 		}
 	}
 
@@ -50,32 +50,11 @@ func main() {
 	}
 
 	shortenerService := service.NewShortenerService(repo, config.MaxWorkers)
+
 	h := handler.NewHandler(shortenerService, dbConn, mngr)
 	restAPIHandler := handler.NewRestAPIHandler(shortenerService, mngr)
 
-	r := gin.Default()
-	r.Use(logger.RequestLogger(), compress.RequestEncoder(), cookie.CookieHandler(config.SigningKey))
-	r.POST("/", func(c *gin.Context) {
-		h.GetShortURL(c, config.ResultBaseURL)
-	})
-	r.GET("/:id", func(c *gin.Context) {
-		h.GetURL(c)
-	})
-	r.POST("/api/shorten", func(c *gin.Context) {
-		restAPIHandler.GetShortURL(c, config.ResultBaseURL)
-	})
-	r.GET("/ping", func(c *gin.Context) {
-		h.CheckDBConnection(c)
-	})
-	r.POST("/api/shorten/batch", func(c *gin.Context) {
-		restAPIHandler.ListShortURLs(c, config.ResultBaseURL)
-	})
-	r.GET("/api/user/urls", func(c *gin.Context) {
-		restAPIHandler.ListUserURLs(c, config.ResultBaseURL)
-	})
-	r.DELETE("/api/user/urls", func(c *gin.Context) {
-		restAPIHandler.BatchRemove(c)
-	})
+	r := setupRouter(h, restAPIHandler, config)
 
 	if err := r.Run(config.ServerAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
@@ -112,6 +91,19 @@ func migrateDB(conn *sql.DB) {
 	}
 }
 
+func initDatabase(url string) *sql.DB {
+	db, err := sql.Open("pgx", url)
+	if err != nil {
+		log.Fatalf("failed to open database: %v", err)
+	}
+	// Проверка соединения
+	if err := db.Ping(); err != nil {
+		log.Fatalf("failed to ping database: %v", err)
+	}
+	migrateDB(db)
+	return db
+}
+
 func initAuditManager(config appConfig.Config) (*audit.Manager, error) {
 	mgr := audit.NewAuditManager()
 
@@ -126,4 +118,31 @@ func initAuditManager(config appConfig.Config) (*audit.Manager, error) {
 		mgr.AddReceiver(audit.NewRemoteReceiver(config.AuditURL))
 	}
 	return mgr, nil
+}
+func setupRouter(h handler.Handler, restAPIHandler handler.RestAPIHandler, config appConfig.Config) *gin.Engine {
+	r := gin.Default()
+	r.Use(logger.RequestLogger(), compress.RequestEncoder(), cookie.CookieHandler(config.SigningKey))
+	r.POST("/", func(c *gin.Context) {
+		h.GetShortURL(c, config.ResultBaseURL)
+	})
+	r.GET("/:id", func(c *gin.Context) {
+		h.GetURL(c)
+	})
+	r.POST("/api/shorten", func(c *gin.Context) {
+		restAPIHandler.GetShortURL(c, config.ResultBaseURL)
+	})
+	r.GET("/ping", func(c *gin.Context) {
+		h.CheckDBConnection(c)
+	})
+	r.POST("/api/shorten/batch", func(c *gin.Context) {
+		restAPIHandler.ListShortURLs(c, config.ResultBaseURL)
+	})
+	r.GET("/api/user/urls", func(c *gin.Context) {
+		restAPIHandler.ListUserURLs(c, config.ResultBaseURL)
+	})
+	r.DELETE("/api/user/urls", func(c *gin.Context) {
+		restAPIHandler.BatchRemove(c)
+	})
+
+	return r
 }
