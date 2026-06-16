@@ -77,7 +77,7 @@ func main() {
 		restAPIHandler.BatchRemove(c)
 	})
 
-	if err := r.Run(config.AppAddr); err != nil {
+	if err := r.Run(config.ServerAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
 }
@@ -122,8 +122,8 @@ func initAuditManager(config appConfig.Config) (*audit.Manager, error) {
 		}
 		mgr.AddReceiver(r)
 	}
-	if config.AuditUrl != "" {
-		mgr.AddReceiver(audit.NewRemoteReceiver(config.AuditUrl))
+	if config.AuditURL != "" {
+		mgr.AddReceiver(audit.NewRemoteReceiver(config.AuditURL))
 	}
 	return mgr, nil
 }

@@ -376,7 +376,7 @@ func setupRouter(storageFile string) *gin.Engine {
 
 	mngr := audit.NewAuditManager()
 	h := NewHandler(shortenerService, nil, mngr)
-	restAPIHandler := NewRestAPIHandler(shortenerService)
+	restAPIHandler := NewRestAPIHandler(shortenerService, mngr)
 
 	r := gin.Default()
 

@@ -14,14 +14,14 @@ const (
 )
 
 type Config struct {
-	AppAddr       string
+	ServerAddr    string
 	ResultBaseURL string
 	FilePath      string
 	DBConnStr     string
 	SigningKey    string
 	MaxWorkers    int
 	AuditFilePath string
-	AuditUrl      string
+	AuditURL      string
 }
 
 func ParseFlags() Config {
@@ -61,14 +61,14 @@ func ParseFlags() Config {
 	countWorkers := getEnvInt("MAX_WORKERS", maxWorkers)
 
 	return Config{
-		AppAddr:       appAddr,
+		ServerAddr:    appAddr,
 		ResultBaseURL: resultBaseURL,
 		FilePath:      fileStoragePath,
 		DBConnStr:     dbConnectionString,
 		SigningKey:    signingKey,
 		MaxWorkers:    countWorkers,
 		AuditFilePath: auditFilePath,
-		AuditUrl:      auditServiceURL,
+		AuditURL:      auditServiceURL,
 	}
 }
 
