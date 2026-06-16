@@ -51,7 +51,7 @@ func main() {
 
 	shortenerService := service.NewShortenerService(repo, config.MaxWorkers)
 	h := handler.NewHandler(shortenerService, dbConn, mngr)
-	restAPIHandler := handler.NewRestAPIHandler(shortenerService)
+	restAPIHandler := handler.NewRestAPIHandler(shortenerService, mngr)
 
 	r := gin.Default()
 	r.Use(logger.RequestLogger(), compress.RequestEncoder(), cookie.CookieHandler(config.SigningKey))

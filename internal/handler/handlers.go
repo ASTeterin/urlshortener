@@ -88,7 +88,8 @@ type handler struct {
 }
 
 type restAPIHandler struct {
-	service service.ShortenerService
+	service      service.ShortenerService
+	auditManager *audit.Manager
 }
 
 // NewHandler creates a new instance of the main HTTP handler.
@@ -101,9 +102,10 @@ func NewHandler(service service.ShortenerService, dbConn *sql.DB, mngr *audit.Ma
 }
 
 // NewRestAPIHandler creates a new instance of the REST API HTTP handler.
-func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
+func NewRestAPIHandler(service service.ShortenerService, mngr *audit.Manager) RestAPIHandler {
 	return &restAPIHandler{
-		service: service,
+		service:      service,
+		auditManager: mngr,
 	}
 }
 
@@ -111,6 +113,7 @@ func NewRestAPIHandler(service service.ShortenerService) RestAPIHandler {
 // Returns 307 Temporary Redirect on success, 410 Gone if deleted, 400 Bad Request otherwise.
 func (h *handler) GetURL(c *gin.Context) {
 	shortURL := c.Param("id")
+	userID := getUserID(c)
 	originalURL, err := h.service.GetOriginalURL(shortURL)
 	if err != nil || originalURL == nil {
 		if errors.Is(err, model.ErrURLHasBeenDeleted) {
@@ -120,6 +123,8 @@ func (h *handler) GetURL(c *gin.Context) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
+
+	notify(h.auditManager, userID, *originalURL, audit.Follow)
 
 	c.Header("Content-Type", "text/plain")
 	c.Header("Location", *originalURL)
@@ -157,6 +162,9 @@ func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
+
+	notify(h.auditManager, userID, originalURL, audit.Shorten)
+
 	returnResponseWithStatus(c, http.StatusCreated, baseURL, *shortURL)
 }
 
