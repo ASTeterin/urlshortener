@@ -1,3 +1,4 @@
+//go:generate go run ../../cmd/reset/main.go
 package config
 
 import (
@@ -13,6 +14,7 @@ const (
 	maxWorkers               = 8
 )
 
+// generate:reset
 type Config struct {
 	ServerAddr    string
 	ResultBaseURL string
