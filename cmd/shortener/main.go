@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -22,6 +23,12 @@ import (
 	dbrepo "github.com/ASTeterin/urlshortener/internal/repository/db"
 	filerepo "github.com/ASTeterin/urlshortener/internal/repository/file"
 	"github.com/ASTeterin/urlshortener/internal/service"
+)
+
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 func main() {
@@ -55,6 +62,8 @@ func main() {
 	restAPIHandler := handler.NewRestAPIHandler(shortenerService, mngr)
 
 	r := setupRouter(h, restAPIHandler, config)
+
+	logAppInfo()
 
 	if err := r.Run(config.ServerAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
@@ -145,4 +154,17 @@ func setupRouter(h handler.Handler, restAPIHandler handler.RestAPIHandler, confi
 	})
 
 	return r
+}
+
+func logAppInfo() {
+	fmt.Printf("Build version: %s\n", getOrDefault(buildVersion, "N/A"))
+	fmt.Printf("Build date: %s\n", getOrDefault(buildDate, "N/A"))
+	fmt.Printf("Build commit: %s\n", getOrDefault(buildCommit, "N/A"))
+}
+
+func getOrDefault(value, defaultValue string) string {
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
