@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -34,7 +35,10 @@ func main() {
 	var dbConn *sql.DB
 
 	if config.DatabaseURL != "" {
-		dbConn = initDatabase(config.DatabaseURL)
+		dbConn, err := initDatabase(config.DatabaseURL)
+		if err != nil {
+			log.Fatalf("Error initializing database connection: %v", err)
+		}
 		repo = dbrepo.NewURLRepository(dbConn)
 	} else {
 		var err error
@@ -61,7 +65,7 @@ func main() {
 	}
 }
 
-func migrateDB(conn *sql.DB) {
+func migrateDB(conn *sql.DB) error {
 	driver, err := postgres.WithInstance(conn, &postgres.Config{
 		SchemaName: "public",
 	})
@@ -73,7 +77,7 @@ func migrateDB(conn *sql.DB) {
 	exeDir := filepath.Dir(exePath)
 	migrationsPath := filepath.Join(exeDir, "..", "..", "migrations")
 	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
-		log.Fatalf("Migrations directory not found: %s", migrationsPath)
+		return fmt.Errorf("migrations directory not found: %s", migrationsPath)
 	}
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://"+migrationsPath,
@@ -86,22 +90,26 @@ func migrateDB(conn *sql.DB) {
 	err = m.Up()
 	if err != nil {
 		if !errors.Is(err, migrate.ErrNoChange) {
-			log.Fatal(err)
+			return err
 		}
 	}
+	return nil
 }
 
-func initDatabase(url string) *sql.DB {
+func initDatabase(url string) (*sql.DB, error) {
 	db, err := sql.Open("pgx", url)
 	if err != nil {
-		log.Fatalf("failed to open database: %v", err)
+		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
 	// Проверка соединения
 	if err := db.Ping(); err != nil {
-		log.Fatalf("failed to ping database: %v", err)
+		return nil, fmt.Errorf("failed to ping database: %v", err)
 	}
-	migrateDB(db)
-	return db
+	err = migrateDB(db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate database: %v", err)
+	}
+	return db, nil
 }
 
 func initAuditManager(config appConfig.Config) (*audit.Manager, error) {
