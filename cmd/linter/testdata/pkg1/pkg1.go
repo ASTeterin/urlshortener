@@ -6,12 +6,9 @@ import (
 )
 
 func main() {
-	// want "call to log.Fatal outside main.main"
-	log.Fatal("error")
+	log.Fatal("error") // want "call to log.Fatal outside main.main"
 
-	// want "call to os.Exit outside main.main"
-	os.Exit(0)
+	os.Exit(0) // want "call to os.Exit outside main.main"
 
-	// want "use of built-in panic"
-	panic("error")
+	panic("error") // want "use of built-in panic"
 }
