@@ -70,7 +70,7 @@ func migrateDB(conn *sql.DB) error {
 		SchemaName: "public",
 	})
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	exePath, _ := os.Executable()
@@ -85,7 +85,7 @@ func migrateDB(conn *sql.DB) error {
 		driver,
 	)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	err = m.Up()
 	if err != nil {
