@@ -320,11 +320,6 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 // CheckDBConnection verifies the database connectivity.
 // Returns 200 OK on success, 500 Internal Server Error on failure.
 func (h *handler) CheckDBConnection(c *gin.Context) {
-	if h.dbConn == nil {
-		c.JSON(http.StatusOK, gin.H{"status": "OK"})
-		return
-	}
-
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 	if err := h.dbConn.PingContext(ctx); err != nil {

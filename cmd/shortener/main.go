@@ -39,15 +39,14 @@ func main() {
 
 	var repo model.ShortenerRepository
 	var dbConn *sql.DB
-
+	var err error
 	if config.DatabaseURL != "" {
-		dbConn, err := initDatabase(config.DatabaseURL)
+		dbConn, err = initDatabase(config.DatabaseURL)
 		if err != nil {
 			log.Fatalf("Error initializing database connection: %v", err)
 		}
 		repo = dbrepo.NewURLRepository(dbConn)
 	} else {
-		var err error
 		repo, err = filerepo.NewURLRepository(config.FilePath)
 		if err != nil {
 			log.Fatalf("failed to init file repository: %v", err)
@@ -68,7 +67,7 @@ func main() {
 
 	logAppInfo()
 
-	if err := r.Run(config.ServerAddr); err != nil {
+	if err = r.Run(config.ServerAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
 }
