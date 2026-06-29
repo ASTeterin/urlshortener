@@ -1,27 +1,14 @@
-# go-musthave-shortener-tpl
+# urlshortener
 
-Шаблон репозитория для трека «Сервис сокращения URL».
+Сервис сокращения URL.
 
-## Начало работы
+## Сборка сервиса
 
-1. Склонируйте репозиторий в любую подходящую директорию на вашем компьютере.
-2. В корне репозитория выполните команду `go mod init <name>` (где `<name>` — адрес вашего репозитория на GitHub без префикса `https://`) для создания модуля.
+При сборке можно передать информацию о версии через флаги `-ldflags`:
 
-## Обновление шаблона
-
-Чтобы иметь возможность получать обновления автотестов и других частей шаблона, выполните команду:
-
+```bash
+go build -ldflags="-X 'github.com/ASTeterin/urlshortener/cmd/shortener.buildVersion=1.0.0' -X 'github.com/ASTeterin/urlshortener/cmd/shortener.buildDate=2023-10-27' -X 'github.com/ASTeterin/urlshortener/cmd/shortener.buildCommit=abc123'" -o ./bin/shortener ./cmd/shortener
 ```
-git remote add -m v2 template https://github.com/Yandex-Practicum/go-musthave-shortener-tpl.git
-```
-
-Для обновления кода автотестов выполните команду:
-
-```
-git fetch template && git checkout template/v2 .github
-```
-
-Затем добавьте полученные изменения в свой репозиторий.
 
 ## Запуск автотестов
 
