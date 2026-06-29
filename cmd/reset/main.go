@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"go/ast"
 	"go/format"
-	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"golang.org/x/tools/go/packages"
 )
 
 type templateReset struct {
@@ -72,82 +73,106 @@ func (s *{{.Name}}) Reset() {
 var tmpl = template.Must(template.New("reset").Parse(templateStr))
 
 func main() {
-	fname := os.Getenv("GOFILE")
-	if fname == "" {
-		fmt.Fprintln(os.Stderr, "GOFILE not set")
-		os.Exit(1)
+	root := "."
+	if len(os.Args) > 1 {
+		root = os.Args[1]
 	}
 
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, fname, nil, parser.ParseComments)
+	cfg := &packages.Config{
+		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax,
+		Dir:  root,
+	}
+	pkgs, err := packages.Load(cfg, "./...")
 	if err != nil {
-		err = fmt.Errorf("parse file error: %w", err)
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "load packages: %v\n", err)
 		os.Exit(1)
 	}
 
-	var structs []templateResetStruct
-
-	for _, d := range f.Decls {
-		gd, ok := d.(*ast.GenDecl)
-		if !ok || gd.Tok != token.TYPE {
+	for _, pkg := range pkgs {
+		if len(pkg.Errors) > 0 {
+			continue
+		}
+		if len(pkg.Syntax) == 0 {
 			continue
 		}
 
-		for _, spec := range gd.Specs {
-			ts, ok := spec.(*ast.TypeSpec)
-			if !ok {
-				continue
-			}
+		structs := scanPackage(pkg)
+		if len(structs) == 0 {
+			continue
+		}
 
-			st, ok := ts.Type.(*ast.StructType)
-			if !ok {
-				continue
-			}
-
-			if !hasGenerateResetComment(gd.Doc, ts.Doc) {
-				continue
-			}
-
-			var fields []templateResetField
-			for _, field := range st.Fields.List {
-				for _, name := range field.Names {
-					fields = append(fields, analyzeField(name.Name, field.Type))
-				}
-			}
-
-			structs = append(structs, templateResetStruct{
-				Name:   ts.Name.Name,
-				Fields: fields,
-			})
+		dir := getPackageDir(pkg)
+		if err := generateResetFile(dir, pkg.Name, structs); err != nil {
+			fmt.Fprintf(os.Stderr, "generate %s: %v\n", pkg.Name, err)
+		} else {
+			fmt.Printf("✓ %s\n", pkg.Name)
 		}
 	}
+}
+
+func scanPackage(pkg *packages.Package) []templateResetStruct {
+	var structs []templateResetStruct
+	for _, f := range pkg.Syntax {
+		for _, d := range f.Decls {
+			gd, ok := d.(*ast.GenDecl)
+			if !ok || gd.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gd.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				st, ok := ts.Type.(*ast.StructType)
+				if !ok {
+					continue
+				}
+				if !hasGenerateResetComment(gd.Doc, ts.Doc) {
+					continue
+				}
+				var fields []templateResetField
+				for _, field := range st.Fields.List {
+					for _, name := range field.Names {
+						fields = append(fields, analyzeField(name.Name, field.Type))
+					}
+				}
+				structs = append(structs, templateResetStruct{
+					Name:   ts.Name.Name,
+					Fields: fields,
+				})
+			}
+		}
+	}
+	return structs
+}
+
+func getPackageDir(pkg *packages.Package) string {
+	if len(pkg.GoFiles) == 0 {
+		if len(pkg.CompiledGoFiles) > 0 {
+			return filepath.Dir(pkg.CompiledGoFiles[0])
+		}
+		return "."
+	}
+	return filepath.Dir(pkg.GoFiles[0])
+}
+
+func generateResetFile(dir, pkgName string, structs []templateResetStruct) error {
+	outPath := filepath.Join(dir, "reset.gen.go")
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, templateReset{
-		Package: f.Name.Name,
+	if err := tmpl.Execute(&buf, templateReset{
+		Package: pkgName,
 		Structs: structs,
-	})
-	if err != nil {
-		err = fmt.Errorf("applies a parsed template error: %w", err)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	}); err != nil {
+		return fmt.Errorf("template execute: %w", err)
 	}
 
 	bufFmt, err := format.Source(buf.Bytes())
 	if err != nil {
-		err = fmt.Errorf("format error: %w", err)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return fmt.Errorf("format: %w", err)
 	}
 
-	outPath := filepath.Join(filepath.Dir(fname), "reset.gen.go")
-	err = os.WriteFile(outPath, bufFmt, 0644)
-	if err != nil {
-		err = fmt.Errorf("write file error: %w", err)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	return os.WriteFile(outPath, bufFmt, 0644)
 }
 
 func hasGenerateResetComment(groups ...*ast.CommentGroup) bool {

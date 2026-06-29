@@ -11,7 +11,7 @@ require (
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/tools v0.46.0
+	golang.org/x/tools v0.47.0
 )
 
 require (
