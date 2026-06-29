@@ -212,9 +212,11 @@ func analyzeField(name string, t ast.Expr) templateResetField {
 		field.IsStruct = true
 		field.Type = "struct{}"
 	default:
-		field.IsPrimitive = true
-		field.Type = expr.(*ast.Ident).Name
-		field.ZeroValue = getZeroValue(field.Type)
+		if ident, ok := t.(*ast.Ident); ok {
+			field.IsPrimitive = true
+			field.Type = ident.Name
+			field.ZeroValue = getZeroValue(field.Type)
+		}
 	}
 
 	return field
