@@ -2,6 +2,7 @@ package main
 
 import (
 	"go/ast"
+	"go/types"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -35,10 +36,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				}
 				if !inMainFunc {
 					if sel, ok := node.Fun.(*ast.SelectorExpr); ok {
-						if xIdent, ok := sel.X.(*ast.Ident); ok {
-							if (xIdent.Name == "log" && sel.Sel.Name == "Fatal") ||
-								(xIdent.Name == "os" && sel.Sel.Name == "Exit") {
-								pass.Reportf(node.Pos(), "call to %s.%s outside main.main", xIdent.Name, sel.Sel.Name)
+						if ident, ok := sel.X.(*ast.Ident); ok {
+							obj := pass.TypesInfo.Uses[ident]
+							if pn, ok := obj.(*types.PkgName); ok {
+								importPath := pn.Imported().Path()
+								if (importPath == "log" && sel.Sel.Name == "Fatal") ||
+									(importPath == "os" && sel.Sel.Name == "Exit") {
+									pass.Reportf(node.Pos(), "call to %s.%s outside main.main", ident.Name, sel.Sel.Name)
+								}
 							}
 						}
 					}
