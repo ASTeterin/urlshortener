@@ -81,7 +81,9 @@ func main() {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, fname, nil, parser.ParseComments)
 	if err != nil {
-		panic(err)
+		err = fmt.Errorf("parse file error: %w", err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	var structs []templateResetStruct
@@ -127,18 +129,24 @@ func main() {
 		Structs: structs,
 	})
 	if err != nil {
-		panic(err)
+		err = fmt.Errorf("applies a parsed template error: %w", err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	bufFmt, err := format.Source(buf.Bytes())
 	if err != nil {
-		panic(err)
+		err = fmt.Errorf("format error: %w", err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	outPath := filepath.Join(filepath.Dir(fname), "reset.gen.go")
 	err = os.WriteFile(outPath, bufFmt, 0644)
 	if err != nil {
-		panic(err)
+		err = fmt.Errorf("write file error: %w", err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
