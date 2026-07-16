@@ -67,7 +67,12 @@ func main() {
 
 	logAppInfo()
 
-	if err = r.Run(config.ServerAddr); err != nil {
+	if config.EnableHTTPS {
+		err = r.RunTLS(config.ServerAddr, config.CertFile, config.KeyFile)
+	} else {
+		err = r.Run(config.ServerAddr)
+	}
+	if err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
 }

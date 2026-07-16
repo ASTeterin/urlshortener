@@ -12,6 +12,8 @@ import (
 const (
 	defaultSigningKey string = "default_signing_key"
 	maxWorkers               = 8
+	certFile                 = "cert.pem"
+	keyFile                  = "key.pem"
 )
 
 // generate:reset
@@ -24,6 +26,9 @@ type Config struct {
 	MaxWorkers    int
 	AuditFilePath string
 	AuditURL      string
+	EnableHTTPS   bool
+	CertFile      string
+	KeyFile       string
 }
 
 func ParseFlags() Config {
@@ -31,12 +36,15 @@ func ParseFlags() Config {
 		appAddr, resultBaseURL, fileStoragePath, dbConnectionString, auditFilePath, auditServiceURL string
 	)
 	var signingKey = defaultSigningKey
+	var enableHTTPS bool
+
 	flag.StringVar(&appAddr, "a", ":8080", "port to run server")
 	flag.StringVar(&resultBaseURL, "b", "http://localhost:8080", "base url for short url")
 	flag.StringVar(&fileStoragePath, "f", "filestorage.txt", "file storage path")
 	flag.StringVar(&dbConnectionString, "d", "", "database DSN")
 	flag.StringVar(&auditFilePath, "audit-file", "", "audit file path")
 	flag.StringVar(&auditServiceURL, "audit-url", "", "audit service url")
+	flag.BoolVar(&enableHTTPS, "s", false, "enable HTTPS")
 	flag.Parse()
 
 	if envAppAddr, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
@@ -60,6 +68,9 @@ func ParseFlags() Config {
 	if envAuditFileURL, exist := os.LookupEnv("AUDIT_URL"); exist {
 		auditServiceURL = envAuditFileURL
 	}
+	if envEnableHTTPS, exist := os.LookupEnv("ENABLE_HTTPS"); exist {
+		enableHTTPS = envEnableHTTPS == "true" || envEnableHTTPS == "1"
+	}
 	countWorkers := getEnvInt("MAX_WORKERS", maxWorkers)
 
 	return Config{
@@ -71,6 +82,9 @@ func ParseFlags() Config {
 		MaxWorkers:    countWorkers,
 		AuditFilePath: auditFilePath,
 		AuditURL:      auditServiceURL,
+		EnableHTTPS:   enableHTTPS,
+		CertFile:      certFile,
+		KeyFile:       keyFile,
 	}
 }
 
