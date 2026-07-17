@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
@@ -67,14 +72,41 @@ func main() {
 
 	logAppInfo()
 
-	if config.EnableHTTPS {
-		err = r.RunTLS(config.ServerAddr, config.CertFile, config.KeyFile)
-	} else {
-		err = r.Run(config.ServerAddr)
+	srv := &http.Server{
+		Addr:    config.ServerAddr,
+		Handler: r,
 	}
-	if err != nil {
-		log.Fatalf("failed to run server: %v", err)
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
+	go func() {
+		var err2 error
+		if config.EnableHTTPS {
+			err2 = srv.ListenAndServeTLS(config.CertFile, config.KeyFile)
+		} else {
+			err2 = srv.ListenAndServe()
+		}
+		if err2 != nil && !errors.Is(err2, http.ErrServerClosed) {
+			log.Fatalf("server failed: %v", err2)
+		}
+	}()
+
+	sig := <-stop
+	log.Println("signal: ", sig.String(), " , shutting down")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err = srv.Shutdown(ctx); err != nil {
+		log.Fatalf("erver shutdown error %v", err)
 	}
+
+	if dbConn != nil {
+		dbConn.Close()
+	}
+
+	log.Println("server stopped")
 }
 
 func migrateDB(conn *sql.DB) error {
