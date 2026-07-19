@@ -2,13 +2,13 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
-	"flag"
 	"os"
-	"strconv"
+	"strings"
 
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -26,17 +26,17 @@ var (
 
 // generate:reset
 type Config struct {
-	ServerAddr    string `json:"server_addr"`
-	ResultBaseURL string `json:"result_base_url"`
-	FilePath      string `json:"file_path"`
-	DatabaseURL   string `json:"database_url"`
-	SigningKey    string `json:"signing_key"`
-	MaxWorkers    int    `json:"max_workers"`
-	AuditFilePath string `json:"audit_file_path"`
-	AuditURL      string `json:"audit_url"`
-	EnableHTTPS   bool   `json:"enable_https"`
-	CertFile      string `json:"cert_file"`
-	KeyFile       string `json:"key_file"`
+	ServerAddr    string `json:"server_addr" mapstructure:"server_addr"`
+	ResultBaseURL string `json:"result_base_url" mapstructure:"result_base_url"`
+	FilePath      string `json:"file_path" mapstructure:"file_path"`
+	DatabaseURL   string `json:"database_url" mapstructure:"database_url"`
+	SigningKey    string `json:"signing_key" mapstructure:"signing_key"`
+	MaxWorkers    int    `json:"max_workers" mapstructure:"max_workers"`
+	AuditFilePath string `json:"audit_file_path" mapstructure:"audit_file_path"`
+	AuditURL      string `json:"audit_url" mapstructure:"audit_url"`
+	EnableHTTPS   bool   `json:"enable_https" mapstructure:"enable_https"`
+	CertFile      string `json:"cert_file" mapstructure:"cert_file"`
+	KeyFile       string `json:"key_file" mapstructure:"key_file"`
 }
 
 func (c *Config) Validate() error {
@@ -47,118 +47,71 @@ func (c *Config) Validate() error {
 }
 
 func ParseFlags() Config {
-	// 1. Базовые значения
-	cfg := Config{
-		ServerAddr:    defaultPort,
-		ResultBaseURL: defaultBaseUrl,
-		FilePath:      defaultFileStoragePath,
-		DatabaseURL:   "",
-		SigningKey:    "",
-		MaxWorkers:    maxWorkers,
-		AuditFilePath: "",
-		AuditURL:      "",
-		EnableHTTPS:   false,
-		CertFile:      certFile,
-		KeyFile:       keyFile,
-	}
+	var configPath string
 
-	// 2. Локальные переменные для флагов
-	var (
-		fAppAddr, fResultBaseURL, fFilePath, fDBConn, fAuditFile, fAuditURL, fConfigPath string
-		fEnableHTTPS                                                                     bool
-	)
+	pflag.StringVarP(&configPath, "config", "c", "", "path to config file")
+	pflag.StringVarP(nil, "a", "a", "", "port to run server")
+	pflag.StringVarP(nil, "b", "b", "", "base url for short url")
+	pflag.StringVarP(nil, "f", "f", "", "file storage path")
+	pflag.StringVarP(nil, "d", "d", "", "database DSN")
+	pflag.StringVarP(nil, "audit-file", "", "", "audit file path")
+	pflag.StringVarP(nil, "audit-url", "", "", "audit service url")
+	pflag.BoolVarP(nil, "s", "s", false, "enable HTTPS")
+	pflag.Parse()
 
-	flag.StringVar(&fAppAddr, "a", "", "port to run server")
-	flag.StringVar(&fResultBaseURL, "b", "", "base url for short url")
-	flag.StringVar(&fFilePath, "f", "", "file storage path")
-	flag.StringVar(&fDBConn, "d", "", "database DSN")
-	flag.StringVar(&fAuditFile, "audit-file", "", "audit file path")
-	flag.StringVar(&fAuditURL, "audit-url", "", "audit service url")
-	flag.BoolVar(&fEnableHTTPS, "s", false, "enable HTTPS")
-	flag.StringVar(&fConfigPath, "config", "", "path to config file")
-	flag.StringVar(&fConfigPath, "c", "", "shorthand for -config")
-	flag.Parse()
-
-	// 3. Загрузка JSON-конфига (низший приоритет)
-	configPath := fConfigPath
-	if configPath == "" {
-		if p, exists := os.LookupEnv("CONFIG"); exists {
-			configPath = p
-		}
-	}
+	viper.SetConfigType("json")
 	if configPath != "" {
-		if err := loadConfigFile(&cfg, configPath); err != nil {
-			log.Warn().Err(err).Msg("failed to load config file, skipping")
+		viper.SetConfigFile(configPath)
+	} else if envConfig := os.Getenv("CONFIG"); envConfig != "" {
+		viper.SetConfigFile(envConfig)
+	} else {
+		viper.AddConfigPath(".")
+		viper.SetConfigName("config")
+	}
+
+	viper.SetDefault("server_addr", defaultPort)
+	viper.SetDefault("result_base_url", defaultBaseUrl)
+	viper.SetDefault("file_path", defaultFileStoragePath)
+	viper.SetDefault("database_url", "")
+	viper.SetDefault("signing_key", "")
+	viper.SetDefault("max_workers", maxWorkers)
+	viper.SetDefault("audit_file_path", "")
+	viper.SetDefault("audit_url", "")
+	viper.SetDefault("enable_https", false)
+	viper.SetDefault("cert_file", certFile)
+	viper.SetDefault("key_file", keyFile)
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			log.Warn().Err(err).Msg("failed to read config file")
 		}
 	}
 
-	// 4. Переменные окружения (средний приоритет)
-	applyEnv(&cfg)
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// 5. Флаги (высший приоритет)
-	if fAppAddr != "" {
-		cfg.ServerAddr = fAppAddr
-	}
-	if fResultBaseURL != "" {
-		cfg.ResultBaseURL = fResultBaseURL
-	}
-	if fFilePath != "" {
-		cfg.FilePath = fFilePath
-	}
-	if fDBConn != "" {
-		cfg.DatabaseURL = fDBConn
-	}
-	if fAuditFile != "" {
-		cfg.AuditFilePath = fAuditFile
-	}
-	if fAuditURL != "" {
-		cfg.AuditURL = fAuditURL
-	}
-	if fEnableHTTPS {
-		cfg.EnableHTTPS = true
+	viper.BindEnv("server_addr", "SERVER_ADDRESS")
+	viper.BindEnv("result_base_url", "BASE_URL")
+	viper.BindEnv("file_path", "FILE_STORAGE_PATH")
+	viper.BindEnv("database_url", "DATABASE_DSN")
+	viper.BindEnv("signing_key", "SIGNING_KEY")
+	viper.BindEnv("audit_file_path", "AUDIT_FILE")
+	viper.BindEnv("audit_url", "AUDIT_URL")
+	viper.BindEnv("enable_https", "ENABLE_HTTPS")
+	viper.BindEnv("max_workers", "MAX_WORKERS")
+
+	viper.BindPFlag("server_addr", pflag.Lookup("a"))
+	viper.BindPFlag("result_base_url", pflag.Lookup("b"))
+	viper.BindPFlag("file_path", pflag.Lookup("f"))
+	viper.BindPFlag("database_url", pflag.Lookup("d"))
+	viper.BindPFlag("audit_file_path", pflag.Lookup("audit-file"))
+	viper.BindPFlag("audit_url", pflag.Lookup("audit-url"))
+	viper.BindPFlag("enable_https", pflag.Lookup("s"))
+
+	var cfg Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Fatal().Err(err).Msg("failed to unmarshal config")
 	}
 
 	return cfg
-}
-
-func loadConfigFile(cfg *Config, path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, cfg)
-}
-
-func applyEnv(cfg *Config) {
-	if v, exists := os.LookupEnv("SERVER_ADDRESS"); exists {
-		cfg.ServerAddr = v
-	}
-	if v, exists := os.LookupEnv("BASE_URL"); exists {
-		cfg.ResultBaseURL = v
-	}
-	if v, exists := os.LookupEnv("FILE_STORAGE_PATH"); exists {
-		cfg.FilePath = v
-	}
-	if v, exists := os.LookupEnv("DATABASE_DSN"); exists {
-		cfg.DatabaseURL = v
-	}
-	if v, exists := os.LookupEnv("SIGNING_KEY"); exists {
-		cfg.SigningKey = v
-	}
-	if v, exists := os.LookupEnv("AUDIT_FILE"); exists {
-		cfg.AuditFilePath = v
-	}
-	if v, exists := os.LookupEnv("AUDIT_URL"); exists {
-		cfg.AuditURL = v
-	}
-	if v, exists := os.LookupEnv("ENABLE_HTTPS"); exists {
-		cfg.EnableHTTPS = v == "true" || v == "1"
-	}
-	if v, exists := os.LookupEnv("MAX_WORKERS"); exists {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.MaxWorkers = n
-		} else {
-			log.Info().Str("err", err.Error()).Str("key", "MAX_WORKERS").Str("value", v).Msg("failed to parse")
-		}
-	}
 }
