@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"log"
 	"net/http"
 	"os"
@@ -38,6 +39,10 @@ var (
 
 func main() {
 	config := appConfig.ParseFlags()
+	if err := config.Validate(); err != nil {
+		log.Fatal(err)
+	}
+
 	if config.DatabaseURL == "" && config.FilePath == "" {
 		log.Fatal("configuration error: neither database URL nor file path is provided")
 	}
@@ -77,29 +82,38 @@ func main() {
 		Handler: r,
 	}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-
-	go func() {
-		var err2 error
+	g, ctx := errgroup.WithContext(context.Background())
+	g.Go(func() error {
+		var err error
 		if config.EnableHTTPS {
-			err2 = srv.ListenAndServeTLS(config.CertFile, config.KeyFile)
+			err = srv.ListenAndServeTLS(config.CertFile, config.KeyFile)
 		} else {
-			err2 = srv.ListenAndServe()
+			err = srv.ListenAndServe()
 		}
-		if err2 != nil && !errors.Is(err2, http.ErrServerClosed) {
-			log.Fatalf("server failed: %v", err2)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("server failed: %w", err)
 		}
-	}()
+		return nil
+	})
 
-	sig := <-stop
-	log.Println("signal: ", sig.String(), " , shutting down")
+	g.Go(func() error {
+		signalCtx, stop := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+		defer stop()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+		<-signalCtx.Done()
+		log.Println("shutdown signal received")
 
-	if err = srv.Shutdown(ctx); err != nil {
-		log.Fatalf("erver shutdown error %v", err)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("server shutdown failed: %w", err)
+		}
+		return nil
+	})
+
+	if err = g.Wait(); err != nil {
+		log.Fatal(err)
 	}
 
 	if dbConn != nil {
@@ -120,7 +134,7 @@ func migrateDB(conn *sql.DB) error {
 	exePath, _ := os.Executable()
 	exeDir := filepath.Dir(exePath)
 	migrationsPath := filepath.Join(exeDir, "..", "..", "migrations")
-	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
+	if _, err = os.Stat(migrationsPath); os.IsNotExist(err) {
 		return fmt.Errorf("migrations directory not found: %s", migrationsPath)
 	}
 	m, err := migrate.NewWithDatabaseInstance(
@@ -146,7 +160,7 @@ func initDatabase(url string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 	// Проверка соединения
-	if err := db.Ping(); err != nil {
+	if err = db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 	err = migrateDB(db)

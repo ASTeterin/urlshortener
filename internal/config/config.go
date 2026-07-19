@@ -3,6 +3,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"os"
 	"strconv"
@@ -13,16 +14,14 @@ import (
 const (
 	defaultPort            string = ":8080"
 	defaultBaseUrl         string = "http://localhost:8080"
-	defaultFileStoragePath        = "filestorage.txt"
-	defaultSigningKey      string = "default_signing_key"
-	maxWorkers                    = 8
-	certFile                      = "cert.pem"
-	keyFile                       = "key.pem"
+	defaultFileStoragePath string = "filestorage.txt"
+	maxWorkers             int    = 8
+	certFile               string = "cert.pem"
+	keyFile                string = "key.pem"
 )
 
 var (
-	fAppAddr, fResultBaseURL, fFilePath, fDBConn, fAuditFile, fAuditURL, fConfigPath string
-	fEnableHTTPS                                                                     bool
+	errSigningKeyNotSet = errors.New("signing key not set")
 )
 
 // generate:reset
@@ -40,6 +39,13 @@ type Config struct {
 	KeyFile       string `json:"key_file"`
 }
 
+func (c *Config) Validate() error {
+	if c.SigningKey == "" {
+		return errSigningKeyNotSet
+	}
+	return nil
+}
+
 func ParseFlags() Config {
 	// 1. Базовые значения
 	cfg := Config{
@@ -47,7 +53,7 @@ func ParseFlags() Config {
 		ResultBaseURL: defaultBaseUrl,
 		FilePath:      defaultFileStoragePath,
 		DatabaseURL:   "",
-		SigningKey:    defaultSigningKey,
+		SigningKey:    "",
 		MaxWorkers:    maxWorkers,
 		AuditFilePath: "",
 		AuditURL:      "",
@@ -56,7 +62,12 @@ func ParseFlags() Config {
 		KeyFile:       keyFile,
 	}
 
-	// 2. Регистрируем флаги с пустыми дефолтами
+	// 2. Локальные переменные для флагов
+	var (
+		fAppAddr, fResultBaseURL, fFilePath, fDBConn, fAuditFile, fAuditURL, fConfigPath string
+		fEnableHTTPS                                                                     bool
+	)
+
 	flag.StringVar(&fAppAddr, "a", "", "port to run server")
 	flag.StringVar(&fResultBaseURL, "b", "", "base url for short url")
 	flag.StringVar(&fFilePath, "f", "", "file storage path")
@@ -85,7 +96,27 @@ func ParseFlags() Config {
 	applyEnv(&cfg)
 
 	// 5. Флаги (высший приоритет)
-	applyFlags(&cfg)
+	if fAppAddr != "" {
+		cfg.ServerAddr = fAppAddr
+	}
+	if fResultBaseURL != "" {
+		cfg.ResultBaseURL = fResultBaseURL
+	}
+	if fFilePath != "" {
+		cfg.FilePath = fFilePath
+	}
+	if fDBConn != "" {
+		cfg.DatabaseURL = fDBConn
+	}
+	if fAuditFile != "" {
+		cfg.AuditFilePath = fAuditFile
+	}
+	if fAuditURL != "" {
+		cfg.AuditURL = fAuditURL
+	}
+	if fEnableHTTPS {
+		cfg.EnableHTTPS = true
+	}
 
 	return cfg
 }
@@ -129,30 +160,5 @@ func applyEnv(cfg *Config) {
 		} else {
 			log.Info().Str("err", err.Error()).Str("key", "MAX_WORKERS").Str("value", v).Msg("failed to parse")
 		}
-	}
-}
-
-func applyFlags(cfg *Config) {
-	if fAppAddr != "" {
-		cfg.ServerAddr = fAppAddr
-	}
-	if fResultBaseURL != "" {
-		cfg.ResultBaseURL = fResultBaseURL
-	}
-	if fFilePath != "" {
-		cfg.FilePath = fFilePath
-	}
-	if fDBConn != "" {
-		cfg.DatabaseURL = fDBConn
-	}
-	if fAuditFile != "" {
-		cfg.AuditFilePath = fAuditFile
-	}
-	if fAuditURL != "" {
-		cfg.AuditURL = fAuditURL
-	}
-
-	if fEnableHTTPS {
-		cfg.EnableHTTPS = true
 	}
 }
