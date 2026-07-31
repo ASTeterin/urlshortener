@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	grpc_pkg "google.golang.org/grpc"
+	grpcPkg "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	pb "github.com/ASTeterin/urlshortener/api"
@@ -90,15 +90,15 @@ func main() {
 		Handler: r,
 	}
 
-	var grpcServer *grpc_pkg.Server
+	var grpcServer *grpcPkg.Server
 	if config.EnableHTTPS {
 		creds, err := credentials.NewServerTLSFromFile(config.CertFile, config.KeyFile)
 		if err != nil {
 			log.Fatalf("Failed to generate credentials: %v", err)
 		}
-		grpcServer = grpc_pkg.NewServer(grpc_pkg.Creds(creds))
+		grpcServer = grpcPkg.NewServer(grpcPkg.Creds(creds))
 	} else {
-		grpcServer = grpc_pkg.NewServer()
+		grpcServer = grpcPkg.NewServer()
 	}
 
 	grpcSvc := grpc.NewServer(shortenerService)
