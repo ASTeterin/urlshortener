@@ -1,6 +1,7 @@
 package service
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
@@ -206,6 +207,55 @@ func Test_shortenerService_BatchRemove(t *testing.T) {
 			}
 			if !reflect.DeepEqual(result.SuccessCount, tt.deletedURLs) {
 				t.Errorf("Deleted %d URLs, want %d", result.SuccessCount, tt.deletedURLs)
+			}
+		})
+	}
+}
+
+func Test_shortenerService_GetStats(t *testing.T) {
+	repo, err := file.NewURLRepository("test_get_stats")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("test_get_stats")
+
+	s := &shortenerService{
+		repo: repo,
+	}
+
+	userID1 := uuid.New().String()
+	userID2 := uuid.New().String()
+
+	_, _ = s.GetShortURL("http://google.com", userID1)
+	_, _ = s.GetShortURL("http://yandex.ru", userID1)
+	_, _ = s.GetShortURL("http://test.ru", userID2)
+
+	tests := []struct {
+		name      string
+		wantURLs  int
+		wantUsers int
+		wantErr   bool
+	}{
+		{
+			name:      "positive test",
+			wantURLs:  3,
+			wantUsers: 2,
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			urls, users, err := s.GetStats()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetStats() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if urls != tt.wantURLs {
+				t.Errorf("GetStats() urls = %v, want %v", urls, tt.wantURLs)
+			}
+			if users != tt.wantUsers {
+				t.Errorf("GetStats() users = %v, want %v", users, tt.wantUsers)
 			}
 		})
 	}
