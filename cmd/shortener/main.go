@@ -5,15 +5,22 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
+
+	"golang.org/x/sync/errgroup"
+	grpc_pkg "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+
+	pb "github.com/ASTeterin/urlshortener/api"
+	"github.com/ASTeterin/urlshortener/internal/grpc"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
@@ -83,7 +90,37 @@ func main() {
 		Handler: r,
 	}
 
+	var grpcServer *grpc_pkg.Server
+	if config.EnableHTTPS {
+		creds, err := credentials.NewServerTLSFromFile(config.CertFile, config.KeyFile)
+		if err != nil {
+			log.Fatalf("Failed to generate credentials: %v", err)
+		}
+		grpcServer = grpc_pkg.NewServer(grpc_pkg.Creds(creds))
+	} else {
+		grpcServer = grpc_pkg.NewServer()
+	}
+
+	grpcSvc := grpc.NewServer(shortenerService)
+	pb.RegisterShortenerServiceServer(grpcServer, grpcSvc)
+
+	grpcAddr := config.ServerAddr
+	if grpcAddr == "" {
+		grpcAddr = ":0"
+	}
+
+	host, port, err := net.SplitHostPort(grpcAddr)
+	if err != nil {
+		host = ""
+		port = grpcAddr
+	}
+	p, err := strconv.Atoi(port)
+	if err == nil {
+		grpcAddr = fmt.Sprintf("%s:%d", host, p+1)
+	}
+
 	g, ctx := errgroup.WithContext(context.Background())
+
 	g.Go(func() error {
 		var err error
 		if config.EnableHTTPS {
@@ -95,6 +132,15 @@ func main() {
 			return fmt.Errorf("server failed: %w", err)
 		}
 		return nil
+	})
+
+	g.Go(func() error {
+		lis, err := net.Listen("tcp", grpcAddr)
+		if err != nil {
+			return fmt.Errorf("failed to listen on %s: %w", grpcAddr, err)
+		}
+		log.Printf("gRPC server listening on %s", grpcAddr)
+		return grpcServer.Serve(lis)
 	})
 
 	g.Go(func() error {
@@ -110,6 +156,9 @@ func main() {
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("server shutdown failed: %w", err)
 		}
+
+		// Graceful shutdown gRPC
+		grpcServer.GracefulStop()
 		return nil
 	})
 
