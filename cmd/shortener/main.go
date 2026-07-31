@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"golang.org/x/sync/errgroup"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -209,7 +210,13 @@ func setupRouter(h handler.Handler, restAPIHandler handler.RestAPIHandler, confi
 	r.DELETE("/api/user/urls", func(c *gin.Context) {
 		restAPIHandler.BatchRemove(c)
 	})
-
+	r.GET("/api/internal/stats", func(c *gin.Context) {
+		if !isTrustedIP(c, config.TrustedSubnet) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied"})
+			return
+		}
+		h.GetStats(c)
+	})
 	return r
 }
 
@@ -224,4 +231,20 @@ func getOrDefault(value, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func isTrustedIP(c *gin.Context, trustedSubnet string) bool {
+	if trustedSubnet == "" {
+		return false
+	}
+	clientIP := c.GetHeader("X-Real-IP")
+	if clientIP == "" {
+		return false
+	}
+	_, ipNet, err := net.ParseCIDR(trustedSubnet)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(clientIP)
+	return ip != nil && ipNet.Contains(ip)
 }

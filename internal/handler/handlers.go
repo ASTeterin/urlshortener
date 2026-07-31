@@ -32,6 +32,10 @@ type Handler interface {
 	// CheckDBConnection verifies the database connectivity.
 	// Returns 200 OK on success, 500 Internal Server Error on failure.
 	CheckDBConnection(c *gin.Context)
+
+	// GetStats returns the total number of shortened URLs and unique users in the system.
+	// Returns 200 OK with stats object, 500 Internal Server Error on failure.
+	GetStats(c *gin.Context)
 }
 
 // RestAPIHandler defines the HTTP handlers for the REST API.
@@ -327,6 +331,21 @@ func (h *handler) CheckDBConnection(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
+}
+
+// GetStats returns the total number of shortened URLs and unique users in the system.
+// Returns 200 OK with stats object, 500 Internal Server Error on failure.
+func (h *handler) GetStats(c *gin.Context) {
+	urls, users, err := h.service.GetStats()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"urls":  urls,
+		"users": users,
+	})
 }
 
 func (h *restAPIHandler) processBatchRemoveAsync(urls []string) {

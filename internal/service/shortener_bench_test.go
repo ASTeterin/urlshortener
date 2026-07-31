@@ -71,6 +71,25 @@ func (m *mockRepo) Remove(shorts []string) model.BatchDeleteResult {
 	return model.BatchDeleteResult{SuccessCount: success, Error: nil}
 }
 
+func (m *mockRepo) CountURLs() (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.data), nil
+}
+
+func (m *mockRepo) CountUsers() (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	seen := make(map[string]struct{})
+	for _, u := range m.data {
+		if u.CreatedBy != "" {
+			seen[u.CreatedBy] = struct{}{}
+		}
+	}
+	return len(seen), nil
+}
+
 func newMockService() *shortenerService {
 	return &shortenerService{repo: &mockRepo{data: make(map[string]model.URL)}, maxWorkers: 4, batchSize: 50}
 }

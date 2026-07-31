@@ -162,6 +162,28 @@ func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
 	}
 }
 
+func (repo *urlRepository) CountURLs() (int, error) {
+	ctx := context.TODO()
+	query := `SELECT COUNT(*) FROM urls`
+	var count int
+	err := repo.db.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count urls query error: %w", err)
+	}
+	return count, nil
+}
+
+func (repo *urlRepository) CountUsers() (int, error) {
+	ctx := context.TODO()
+	query := `SELECT COUNT(DISTINCT created_by) FROM urls WHERE created_by IS NOT NULL`
+	var count int
+	err := repo.db.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count users query error: %w", err)
+	}
+	return count, nil
+}
+
 func (repo *urlRepository) getStoredShortURL(originalURL string) (string, error) {
 	ctx := context.TODO()
 	const checkQuery = `SELECT short_url FROM urls WHERE original_url = $1`

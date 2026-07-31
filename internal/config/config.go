@@ -37,6 +37,7 @@ type Config struct {
 	EnableHTTPS   bool   `json:"enable_https" mapstructure:"enable_https"`
 	CertFile      string `json:"cert_file" mapstructure:"cert_file"`
 	KeyFile       string `json:"key_file" mapstructure:"key_file"`
+	TrustedSubnet string `json:"trusted_subnet" mapstructure:"trusted_subnet"`
 }
 
 func (c *Config) Validate() error {
@@ -57,6 +58,7 @@ func ParseFlags() Config {
 	pflag.StringVarP(nil, "audit-file", "", "", "audit file path")
 	pflag.StringVarP(nil, "audit-url", "", "", "audit service url")
 	pflag.BoolVarP(nil, "s", "s", false, "enable HTTPS")
+	pflag.StringVar(nil, "t", "t", "CIDR subnet for /api/internal/stats")
 	pflag.Parse()
 
 	viper.SetConfigType("json")
@@ -99,6 +101,7 @@ func ParseFlags() Config {
 	viper.BindEnv("audit_url", "AUDIT_URL")
 	viper.BindEnv("enable_https", "ENABLE_HTTPS")
 	viper.BindEnv("max_workers", "MAX_WORKERS")
+	viper.BindEnv("trusted_subnet", "TRUSTED_SUBNET")
 
 	viper.BindPFlag("server_addr", pflag.Lookup("a"))
 	viper.BindPFlag("result_base_url", pflag.Lookup("b"))
@@ -107,6 +110,7 @@ func ParseFlags() Config {
 	viper.BindPFlag("audit_file_path", pflag.Lookup("audit-file"))
 	viper.BindPFlag("audit_url", pflag.Lookup("audit-url"))
 	viper.BindPFlag("enable_https", pflag.Lookup("s"))
+	viper.BindPFlag("trusted_subnet", pflag.Lookup("t"))
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
