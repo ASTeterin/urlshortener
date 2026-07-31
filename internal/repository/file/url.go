@@ -107,6 +107,25 @@ func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
 	}
 }
 
+func (repo *urlRepository) CountURLs() (int, error) {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
+	return len(repo.storage), nil
+}
+
+func (repo *urlRepository) CountUsers() (int, error) {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
+
+	seen := make(map[string]struct{})
+	for _, urlData := range repo.storage {
+		if urlData.CreatedBy != "" {
+			seen[urlData.CreatedBy] = struct{}{}
+		}
+	}
+	return len(seen), nil
+}
+
 func (repo *urlRepository) nextUUID() int {
 	repo.uuid += 1
 	return repo.uuid

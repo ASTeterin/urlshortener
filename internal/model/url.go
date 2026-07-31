@@ -34,4 +34,6 @@ type ShortenerRepository interface {
 	StoreAll(urls []URL) ([]URL, error)
 	ListByUserID(userID string) ([]URL, error)
 	Remove(shortURLs []string) BatchDeleteResult
+	CountURLs() (int, error)
+	CountUsers() (int, error)
 }
