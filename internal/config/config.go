@@ -13,6 +13,7 @@ import (
 
 const (
 	defaultPort            string = ":8080"
+	grpcPort               string = ":8081"
 	defaultBaseUrl         string = "http://localhost:8080"
 	defaultFileStoragePath string = "filestorage.txt"
 	maxWorkers             int    = 8
@@ -27,6 +28,7 @@ var (
 // generate:reset
 type Config struct {
 	ServerAddr    string `json:"server_addr" mapstructure:"server_addr"`
+	GRPCAddr      string `json:"grpc_addr" mapstructure:"grpc_addr"`
 	ResultBaseURL string `json:"result_base_url" mapstructure:"result_base_url"`
 	FilePath      string `json:"file_path" mapstructure:"file_path"`
 	DatabaseURL   string `json:"database_url" mapstructure:"database_url"`
@@ -72,6 +74,7 @@ func ParseFlags() Config {
 	}
 
 	viper.SetDefault("server_addr", defaultPort)
+	viper.SetDefault("grpc_addr", grpcPort)
 	viper.SetDefault("result_base_url", defaultBaseUrl)
 	viper.SetDefault("file_path", defaultFileStoragePath)
 	viper.SetDefault("database_url", "")
@@ -93,6 +96,7 @@ func ParseFlags() Config {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	viper.BindEnv("server_addr", "SERVER_ADDRESS")
+	viper.BindEnv("grpc_addr", "GRPC_ADDRESS")
 	viper.BindEnv("result_base_url", "BASE_URL")
 	viper.BindEnv("file_path", "FILE_STORAGE_PATH")
 	viper.BindEnv("database_url", "DATABASE_DSN")

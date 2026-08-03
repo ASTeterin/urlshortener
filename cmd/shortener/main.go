@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -104,20 +103,11 @@ func main() {
 	grpcSvc := grpc.NewServer(shortenerService)
 	pb.RegisterShortenerServiceServer(grpcServer, grpcSvc)
 
-	grpcAddr := config.ServerAddr
-	if grpcAddr == "" {
-		grpcAddr = ":0"
-	}
-
-	host, port, err := net.SplitHostPort(grpcAddr)
+	host, _, err := net.SplitHostPort(config.ServerAddr)
 	if err != nil {
 		host = ""
-		port = grpcAddr
 	}
-	p, err := strconv.Atoi(port)
-	if err == nil {
-		grpcAddr = fmt.Sprintf("%s:%d", host, p+1)
-	}
+	grpcAddr := net.JoinHostPort(host, config.GRPCAddr)
 
 	g, ctx := errgroup.WithContext(context.Background())
 
