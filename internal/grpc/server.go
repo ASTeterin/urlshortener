@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	pb "github.com/ASTeterin/urlshortener/api"
+	"github.com/ASTeterin/urlshortener/internal/model"
 	"github.com/ASTeterin/urlshortener/internal/service"
 )
 
@@ -21,31 +24,56 @@ func NewServer(svc service.ShortenerService) *server {
 }
 
 func (s *server) ShortenURL(ctx context.Context, req *pb.URLShortenRequest) (*pb.URLShortenResponse, error) {
-	userID, _ := getUserIDFromMetadata(ctx)
+	if req.Url == "" {
+		return nil, status.Error(codes.InvalidArgument, "url is required")
+	}
+
+	userID, err := getUserIDFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing user ID")
+	}
+
 	shortURL, err := s.service.GetShortURL(req.Url, userID)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, model.ErrDuplicateURL) {
+			return &pb.URLShortenResponse{Result: *shortURL}, nil
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
+
 	return &pb.URLShortenResponse{Result: *shortURL}, nil
 }
 
-func (s *server) ExpandURL(_ context.Context, req *pb.URLExpandRequest) (*pb.URLExpandResponse, error) {
+func (s *server) ExpandURL(ctx context.Context, req *pb.URLExpandRequest) (*pb.URLExpandResponse, error) {
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+
+	_, err := getUserIDFromMetadata(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing user ID")
+	}
+
 	original, err := s.service.GetOriginalURL(req.Id)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, model.ErrURLHasBeenDeleted) {
+			return nil, status.Error(codes.NotFound, "URL has been deleted")
+		}
+		return nil, status.Error(codes.InvalidArgument, "invalid short URL")
 	}
+
 	return &pb.URLExpandResponse{Result: *original}, nil
 }
 
 func (s *server) ListUserURLs(ctx context.Context, empty *emptypb.Empty) (*pb.UserURLsResponse, error) {
 	userID, err := getUserIDFromMetadata(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Unauthenticated, "missing user ID")
 	}
 
 	shortURLsMap, err := s.service.ListUserURLs(userID)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	var pbUrls []*pb.URLData
@@ -55,6 +83,7 @@ func (s *server) ListUserURLs(ctx context.Context, empty *emptypb.Empty) (*pb.Us
 			OriginalUrl: originalURL,
 		})
 	}
+
 	return &pb.UserURLsResponse{Urls: pbUrls}, nil
 }
 
