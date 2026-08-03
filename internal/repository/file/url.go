@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -33,7 +34,7 @@ func NewURLRepository(filePath string) (model.ShortenerRepository, error) {
 	return repo, nil
 }
 
-func (repo *urlRepository) Store(url model.URL) (*string, error) {
+func (repo *urlRepository) Store(_ context.Context, url model.URL) (*string, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 
@@ -48,10 +49,10 @@ func (repo *urlRepository) Store(url model.URL) (*string, error) {
 	return &url.Short, repo.save()
 }
 
-func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
+func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.URL) ([]model.URL, error) {
 	var result []model.URL
 	for _, url := range urls {
-		shortURL, err := repo.Store(url)
+		shortURL, err := repo.Store(ctx, url)
 		if err != nil && !errors.Is(err, model.ErrDuplicateURL) {
 			return nil, err
 		}
@@ -63,7 +64,7 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 	return result, nil
 }
 
-func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
+func (repo *urlRepository) GetByShort(_ context.Context, short string) (model.URL, error) {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()
 	url, ok := repo.storage[short]
@@ -73,7 +74,7 @@ func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 	return url, nil
 }
 
-func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
+func (repo *urlRepository) ListByUserID(_ context.Context, userID string) ([]model.URL, error) {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()
 	var result []model.URL
@@ -85,7 +86,7 @@ func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
 	return result, nil
 }
 
-func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
+func (repo *urlRepository) Remove(_ context.Context, shortURLs []string) model.BatchDeleteResult {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 
@@ -107,13 +108,13 @@ func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
 	}
 }
 
-func (repo *urlRepository) CountURLs() (int, error) {
+func (repo *urlRepository) CountURLs(_ context.Context) (int, error) {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()
 	return len(repo.storage), nil
 }
 
-func (repo *urlRepository) CountUsers() (int, error) {
+func (repo *urlRepository) CountUsers(_ context.Context) (int, error) {
 	repo.mu.RLock()
 	defer repo.mu.RUnlock()
 

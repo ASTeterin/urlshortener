@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -18,12 +19,12 @@ var (
 )
 
 type ShortenerService interface {
-	GetShortURL(originalURL, userID string) (*string, error)
-	GetOriginalURL(shortURL string) (*string, error)
-	ListShortURL(originalURLsMap map[string]string, userID string) (map[string]string, error)
-	ListUserURLs(userID string) (map[string]string, error)
-	BatchRemove(shortURLs []string) *DeleteURLResponse
-	GetStats() (urls int, users int, err error)
+	GetShortURL(ctx context.Context, originalURL, userID string) (*string, error)
+	GetOriginalURL(ctx context.Context, shortURL string) (*string, error)
+	ListShortURL(ctx context.Context, originalURLsMap map[string]string, userID string) (map[string]string, error)
+	ListUserURLs(ctx context.Context, userID string) (map[string]string, error)
+	BatchRemove(ctx context.Context, shortURLs []string) *DeleteURLResponse
+	GetStats(ctx context.Context) (urls int, users int, err error)
 }
 
 func NewShortenerService(repo model.ShortenerRepository, maxWorkers int) ShortenerService {
@@ -45,20 +46,20 @@ type DeleteURLResponse struct {
 	Errors       []error
 }
 
-func (s *shortenerService) GetShortURL(originalURL, userID string) (*string, error) {
-	short := s.generateShortURL()
+func (s *shortenerService) GetShortURL(ctx context.Context, originalURL, userID string) (*string, error) {
+	short := s.generateShortURL(ctx)
 	url := model.URL{
 		Short:     short,
 		Original:  originalURL,
 		CreatedBy: userID,
 	}
-	return s.repo.Store(url)
+	return s.repo.Store(ctx, url)
 }
 
-func (s *shortenerService) ListShortURL(originalURLsMap map[string]string, userID string) (map[string]string, error) {
+func (s *shortenerService) ListShortURL(ctx context.Context, originalURLsMap map[string]string, userID string) (map[string]string, error) {
 	result := make(map[string]string, len(originalURLsMap))
-	urls := s.generateModels(originalURLsMap, userID)
-	storedURLs, err := s.repo.StoreAll(urls)
+	urls := s.generateModels(ctx, originalURLsMap, userID)
+	storedURLs, err := s.repo.StoreAll(ctx, urls)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +79,8 @@ func (s *shortenerService) ListShortURL(originalURLsMap map[string]string, userI
 	return result, nil
 }
 
-func (s *shortenerService) ListUserURLs(userID string) (map[string]string, error) {
-	storedURLs, err := s.repo.ListByUserID(userID)
+func (s *shortenerService) ListUserURLs(ctx context.Context, userID string) (map[string]string, error) {
+	storedURLs, err := s.repo.ListByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +92,7 @@ func (s *shortenerService) ListUserURLs(userID string) (map[string]string, error
 	return result, nil
 }
 
-func (s *shortenerService) BatchRemove(shortURLs []string) *DeleteURLResponse {
+func (s *shortenerService) BatchRemove(ctx context.Context, shortURLs []string) *DeleteURLResponse {
 	if len(shortURLs) == 0 {
 		return &DeleteURLResponse{SuccessCount: 0, Errors: nil}
 	}
@@ -114,7 +115,7 @@ func (s *shortenerService) BatchRemove(shortURLs []string) *DeleteURLResponse {
 			sem.Acquire()
 			defer sem.Release()
 
-			result := s.repo.Remove(batch)
+			result := s.repo.Remove(ctx, batch)
 			resultCh <- result
 		}(batch)
 	}
@@ -140,30 +141,30 @@ func (s *shortenerService) BatchRemove(shortURLs []string) *DeleteURLResponse {
 	}
 }
 
-func (s *shortenerService) GetStats() (int, int, error) {
-	urls, err := s.repo.CountURLs()
+func (s *shortenerService) GetStats(ctx context.Context) (int, int, error) {
+	urls, err := s.repo.CountURLs(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
-	users, err := s.repo.CountUsers()
+	users, err := s.repo.CountUsers(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
 	return urls, users, nil
 }
 
-func (s *shortenerService) GetOriginalURL(shortURL string) (*string, error) {
-	url, err := s.repo.GetByShort(shortURL)
+func (s *shortenerService) GetOriginalURL(ctx context.Context, shortURL string) (*string, error) {
+	url, err := s.repo.GetByShort(ctx, shortURL)
 	if err != nil {
 		return nil, err
 	}
 	return &url.Original, nil
 }
 
-func (s *shortenerService) generateModels(originalURLsMap map[string]string, userID string) []model.URL {
+func (s *shortenerService) generateModels(ctx context.Context, originalURLsMap map[string]string, userID string) []model.URL {
 	urls := make([]model.URL, 0, len(originalURLsMap))
 	for _, v := range originalURLsMap {
-		short := s.generateShortURL()
+		short := s.generateShortURL(ctx)
 		url := model.URL{
 			Short:     short,
 			Original:  v,
@@ -174,7 +175,7 @@ func (s *shortenerService) generateModels(originalURLsMap map[string]string, use
 	return urls
 }
 
-func (s *shortenerService) generateShortURL() string {
+func (s *shortenerService) generateShortURL(ctx context.Context) string {
 	b := make([]byte, model.ShortURLLen)
 	for {
 		randMu.Lock()
@@ -184,7 +185,7 @@ func (s *shortenerService) generateShortURL() string {
 		randMu.Unlock()
 
 		value := string(b)
-		_, err := s.repo.GetByShort(value)
+		_, err := s.repo.GetByShort(ctx, value)
 		if err != nil {
 			if errors.Is(err, model.ErrURLNotFound) {
 				return value

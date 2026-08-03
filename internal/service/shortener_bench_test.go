@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -21,14 +22,14 @@ func NewMockRepository() *mockRepo {
 	}
 }
 
-func (m *mockRepo) Store(u model.URL) (*string, error) {
+func (m *mockRepo) Store(_ context.Context, u model.URL) (*string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.data[u.Short] = u // Одна вставка
 	return &u.Short, nil
 }
 
-func (m *mockRepo) StoreAll(urls []model.URL) ([]model.URL, error) {
+func (m *mockRepo) StoreAll(_ context.Context, urls []model.URL) ([]model.URL, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for i := range urls {
@@ -37,7 +38,7 @@ func (m *mockRepo) StoreAll(urls []model.URL) ([]model.URL, error) {
 	return urls, nil
 }
 
-func (m *mockRepo) GetByShort(short string) (model.URL, error) {
+func (m *mockRepo) GetByShort(_ context.Context, short string) (model.URL, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if u, ok := m.data[short]; ok {
@@ -46,7 +47,7 @@ func (m *mockRepo) GetByShort(short string) (model.URL, error) {
 	return model.URL{}, model.ErrURLNotFound
 }
 
-func (m *mockRepo) ListByUserID(userID string) ([]model.URL, error) {
+func (m *mockRepo) ListByUserID(_ context.Context, userID string) ([]model.URL, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	res := make([]model.URL, 0, len(m.data)) // Предварительный размер
@@ -58,7 +59,7 @@ func (m *mockRepo) ListByUserID(userID string) ([]model.URL, error) {
 	return res, nil
 }
 
-func (m *mockRepo) Remove(shorts []string) model.BatchDeleteResult {
+func (m *mockRepo) Remove(_ context.Context, shorts []string) model.BatchDeleteResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var success int
@@ -71,13 +72,13 @@ func (m *mockRepo) Remove(shorts []string) model.BatchDeleteResult {
 	return model.BatchDeleteResult{SuccessCount: success, Error: nil}
 }
 
-func (m *mockRepo) CountURLs() (int, error) {
+func (m *mockRepo) CountURLs(_ context.Context) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.data), nil
 }
 
-func (m *mockRepo) CountUsers() (int, error) {
+func (m *mockRepo) CountUsers(_ context.Context) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -98,30 +99,32 @@ func BenchmarkGetShortURL(b *testing.B) {
 	svc := newMockService()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = svc.GetShortURL("https://example.com/page", "user1")
+		_, _ = svc.GetShortURL(context.TODO(), "https://example.com/page", "user1")
 	}
 }
 
 func BenchmarkGetOriginalURL(b *testing.B) {
+	ctx := context.TODO()
 	svc := newMockService()
-	short, _ := svc.GetShortURL("https://example.com/target", "user1")
+	short, _ := svc.GetShortURL(ctx, "https://example.com/target", "user1")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = svc.GetOriginalURL(*short)
+		_, _ = svc.GetOriginalURL(ctx, *short)
 	}
 }
 
 func BenchmarkBatchRemove(b *testing.B) {
+	ctx := context.TODO()
 	svc := newMockService()
 	var shorts []string
 	for i := 0; i < 1000; i++ {
-		s, _ := svc.GetShortURL("https://example.com/x", "user1")
+		s, _ := svc.GetShortURL(ctx, "https://example.com/x", "user1")
 		shorts = append(shorts, *s)
 	}
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			svc.BatchRemove(shorts)
+			svc.BatchRemove(ctx, shorts)
 		}
 	})
 }
@@ -136,18 +139,19 @@ func BenchmarkListShortURL(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = svc.ListShortURL(originalURLsMap, "user1")
+		_, _ = svc.ListShortURL(context.TODO(), originalURLsMap, "user1")
 	}
 }
 
 func BenchmarkListUserURLs(b *testing.B) {
+	ctx := context.TODO()
 	svc := newMockService()
 	for i := 0; i < 1000; i++ {
-		svc.GetShortURL("https://example.com/x", "user1")
+		svc.GetShortURL(ctx, "https://example.com/x", "user1")
 	}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, _ = svc.ListUserURLs("user1")
+		_, _ = svc.ListUserURLs(ctx, "user1")
 	}
 }

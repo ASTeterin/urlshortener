@@ -23,8 +23,7 @@ func NewURLRepository(db *sql.DB) model.ShortenerRepository {
 	return repo
 }
 
-func (repo *urlRepository) Store(url model.URL) (*string, error) {
-	ctx := context.TODO()
+func (repo *urlRepository) Store(ctx context.Context, url model.URL) (*string, error) {
 	const query = `
         INSERT INTO urls (short_url, original_url, created_by)
         VALUES ($1, $2, $3)
@@ -37,7 +36,7 @@ func (repo *urlRepository) Store(url model.URL) (*string, error) {
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-		existingShortURL, err2 := repo.getStoredShortURL(url.Original)
+		existingShortURL, err2 := repo.getStoredShortURL(ctx, url.Original)
 		if err2 == nil {
 			return &existingShortURL, model.ErrDuplicateURL
 		}
@@ -47,9 +46,8 @@ func (repo *urlRepository) Store(url model.URL) (*string, error) {
 	return &shortURL, nil
 }
 
-func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
+func (repo *urlRepository) StoreAll(ctx context.Context, urls []model.URL) ([]model.URL, error) {
 	var result []model.URL
-	ctx := context.TODO()
 	tx, err := repo.db.Begin()
 	if err != nil {
 		return nil, err
@@ -63,7 +61,7 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 		var pgErr *pgconn.PgError
 		if err != nil {
 			if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-				existingShortURL, err2 := repo.getStoredShortURL(url.Original)
+				existingShortURL, err2 := repo.getStoredShortURL(ctx, url.Original)
 				if err2 != nil {
 					return nil, err2
 				}
@@ -83,8 +81,7 @@ func (repo *urlRepository) StoreAll(urls []model.URL) ([]model.URL, error) {
 	return result, tx.Commit()
 }
 
-func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
-	ctx := context.TODO()
+func (repo *urlRepository) GetByShort(ctx context.Context, short string) (model.URL, error) {
 	query := `SELECT id, short_url, original_url, is_deleted FROM urls WHERE short_url = $1`
 	url := model.URL{}
 	err := repo.db.QueryRowContext(ctx, query, short).Scan(
@@ -98,8 +95,7 @@ func (repo *urlRepository) GetByShort(short string) (model.URL, error) {
 	return url, err
 }
 
-func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
-	ctx := context.TODO()
+func (repo *urlRepository) ListByUserID(ctx context.Context, userID string) ([]model.URL, error) {
 	query := `SELECT id, short_url, original_url FROM urls WHERE created_by = $1`
 	urls := make([]model.URL, 0)
 	rows, err := repo.db.QueryContext(ctx, query, userID)
@@ -123,8 +119,7 @@ func (repo *urlRepository) ListByUserID(userID string) ([]model.URL, error) {
 	return urls, nil
 }
 
-func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
-	ctx := context.TODO()
+func (repo *urlRepository) Remove(ctx context.Context, shortURLs []string) model.BatchDeleteResult {
 	if len(shortURLs) == 0 {
 		return model.BatchDeleteResult{SuccessCount: 0, Error: nil}
 	}
@@ -162,8 +157,7 @@ func (repo *urlRepository) Remove(shortURLs []string) model.BatchDeleteResult {
 	}
 }
 
-func (repo *urlRepository) CountURLs() (int, error) {
-	ctx := context.TODO()
+func (repo *urlRepository) CountURLs(ctx context.Context) (int, error) {
 	query := `SELECT COUNT(*) FROM urls`
 	var count int
 	err := repo.db.QueryRowContext(ctx, query).Scan(&count)
@@ -173,8 +167,7 @@ func (repo *urlRepository) CountURLs() (int, error) {
 	return count, nil
 }
 
-func (repo *urlRepository) CountUsers() (int, error) {
-	ctx := context.TODO()
+func (repo *urlRepository) CountUsers(ctx context.Context) (int, error) {
 	query := `SELECT COUNT(DISTINCT created_by) FROM urls WHERE created_by IS NOT NULL`
 	var count int
 	err := repo.db.QueryRowContext(ctx, query).Scan(&count)
@@ -184,8 +177,7 @@ func (repo *urlRepository) CountUsers() (int, error) {
 	return count, nil
 }
 
-func (repo *urlRepository) getStoredShortURL(originalURL string) (string, error) {
-	ctx := context.TODO()
+func (repo *urlRepository) getStoredShortURL(ctx context.Context, originalURL string) (string, error) {
 	const checkQuery = `SELECT short_url FROM urls WHERE original_url = $1`
 	var existingShortURL string
 	err := repo.db.QueryRowContext(ctx, checkQuery, originalURL).Scan(&existingShortURL)

@@ -116,9 +116,10 @@ func NewRestAPIHandler(service service.ShortenerService, mngr *audit.Manager) Re
 // GetURL redirects to the original URL based on the short code.
 // Returns 307 Temporary Redirect on success, 410 Gone if deleted, 400 Bad Request otherwise.
 func (h *handler) GetURL(c *gin.Context) {
+	ctx := fromIncomingContext(c)
 	shortURL := c.Param("id")
 	userID := getUserID(c)
-	originalURL, err := h.service.GetOriginalURL(shortURL)
+	originalURL, err := h.service.GetOriginalURL(ctx, shortURL)
 	if err != nil || originalURL == nil {
 		if errors.Is(err, model.ErrURLHasBeenDeleted) {
 			c.AbortWithStatus(http.StatusGone)
@@ -138,6 +139,7 @@ func (h *handler) GetURL(c *gin.Context) {
 // GetShortURL creates a short URL from a JSON payload containing the original URL.
 // Returns 201 Created or 409 Conflict with JSON response, 400 on validation error.
 func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
+	ctx := fromIncomingContext(c)
 	var urlData URLData
 	err := c.BindJSON(&urlData)
 	if err != nil {
@@ -157,7 +159,7 @@ func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
 	}
 
 	userID := getUserID(c)
-	shortURL, err := h.service.GetShortURL(originalURL, userID)
+	shortURL, err := h.service.GetShortURL(ctx, originalURL, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrDuplicateURL) {
 			returnResponseWithStatus(c, http.StatusConflict, baseURL, *shortURL)
@@ -175,8 +177,9 @@ func (h *restAPIHandler) GetShortURL(c *gin.Context, baseURL string) {
 // ListUserURLs retrieves all short URLs created by the authenticated user.
 // Returns 200 OK with JSON array, 204 No Content if empty, 400/500 on error.
 func (h *restAPIHandler) ListUserURLs(c *gin.Context, baseURL string) {
+	ctx := fromIncomingContext(c)
 	userID := getUserID(c)
-	shortURLsMap, err := h.service.ListUserURLs(userID)
+	shortURLsMap, err := h.service.ListUserURLs(ctx, userID)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -212,6 +215,7 @@ func (h *restAPIHandler) ListUserURLs(c *gin.Context, baseURL string) {
 // BatchRemove initiates asynchronous deletion of a list of short URLs.
 // Returns 202 Accepted immediately. Errors are logged asynchronously.
 func (h *restAPIHandler) BatchRemove(c *gin.Context) {
+	ctx := fromIncomingContext(c)
 	var urls []string
 	err := c.BindJSON(&urls)
 	if err != nil {
@@ -220,7 +224,7 @@ func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 	}
 
 	go func() {
-		h.processBatchRemoveAsync(urls)
+		h.processBatchRemoveAsync(ctx, urls)
 	}()
 
 	c.Status(http.StatusAccepted)
@@ -229,6 +233,7 @@ func (h *restAPIHandler) BatchRemove(c *gin.Context) {
 // ListShortURLs resolves a batch of original URLs to their short counterparts.
 // Returns 201 Created with JSON array mapping correlation IDs to short URLs, 400 on error.
 func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
+	ctx := fromIncomingContext(c)
 	var urls []ListURLItem
 	err := c.BindJSON(&urls)
 	if err != nil {
@@ -251,7 +256,7 @@ func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
 	}
 
 	userID := getUserID(c)
-	shortURLsMap, err := h.service.ListShortURL(urlsMap, userID)
+	shortURLsMap, err := h.service.ListShortURL(ctx, urlsMap, userID)
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -281,6 +286,7 @@ func (h *restAPIHandler) ListShortURLs(c *gin.Context, baseURL string) {
 // GetShortURL creates a short URL from a plain text URL in the request body.
 // Returns 201 Created with the full short URL, 409 Conflict if duplicate, 400/500 on error.
 func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
+	ctx := fromIncomingContext(c)
 	var originalURL string
 	err := c.BindPlain(&originalURL)
 	if err != nil || originalURL == "" {
@@ -295,7 +301,7 @@ func (h *handler) GetShortURL(c *gin.Context, baseURL string) {
 	}
 
 	userID := getUserID(c)
-	short, err := h.service.GetShortURL(originalURL, userID)
+	short, err := h.service.GetShortURL(ctx, originalURL, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrDuplicateURL) {
 			shortURL, err2 := url.JoinPath(baseURL, *short)
@@ -336,7 +342,7 @@ func (h *handler) CheckDBConnection(c *gin.Context) {
 // GetStats returns the total number of shortened URLs and unique users in the system.
 // Returns 200 OK with stats object, 500 Internal Server Error on failure.
 func (h *handler) GetStats(c *gin.Context) {
-	urls, users, err := h.service.GetStats()
+	urls, users, err := h.service.GetStats(fromIncomingContext(c))
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
@@ -348,8 +354,8 @@ func (h *handler) GetStats(c *gin.Context) {
 	})
 }
 
-func (h *restAPIHandler) processBatchRemoveAsync(urls []string) {
-	result := h.service.BatchRemove(urls)
+func (h *restAPIHandler) processBatchRemoveAsync(ctx context.Context, urls []string) {
+	result := h.service.BatchRemove(ctx, urls)
 
 	if result != nil && len(result.Errors) > 0 {
 		err := errors.Join(result.Errors...)
@@ -386,4 +392,8 @@ func notify(mngr *audit.Manager, userID, originalURL string, action audit.Action
 		URL:    originalURL,
 	}
 	mngr.Notify(event)
+}
+
+func fromIncomingContext(c *gin.Context) context.Context {
+	return c.Request.Context()
 }

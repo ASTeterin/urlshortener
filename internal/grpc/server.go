@@ -33,7 +33,7 @@ func (s *server) ShortenURL(ctx context.Context, req *pb.URLShortenRequest) (*pb
 		return nil, status.Error(codes.Unauthenticated, "missing user ID")
 	}
 
-	shortURL, err := s.service.GetShortURL(req.Url, userID)
+	shortURL, err := s.service.GetShortURL(ctx, req.Url, userID)
 	if err != nil {
 		if errors.Is(err, model.ErrDuplicateURL) {
 			return &pb.URLShortenResponse{Result: *shortURL}, nil
@@ -54,7 +54,7 @@ func (s *server) ExpandURL(ctx context.Context, req *pb.URLExpandRequest) (*pb.U
 		return nil, status.Error(codes.Unauthenticated, "missing user ID")
 	}
 
-	original, err := s.service.GetOriginalURL(req.Id)
+	original, err := s.service.GetOriginalURL(ctx, req.Id)
 	if err != nil {
 		if errors.Is(err, model.ErrURLHasBeenDeleted) {
 			return nil, status.Error(codes.NotFound, "URL has been deleted")
@@ -71,7 +71,7 @@ func (s *server) ListUserURLs(ctx context.Context, empty *emptypb.Empty) (*pb.Us
 		return nil, status.Error(codes.Unauthenticated, "missing user ID")
 	}
 
-	shortURLsMap, err := s.service.ListUserURLs(userID)
+	shortURLsMap, err := s.service.ListUserURLs(ctx, userID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
