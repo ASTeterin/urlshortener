@@ -367,6 +367,24 @@ func Example_restAPIHandlerImpl_BatchRemove() {
 	// Output: 202
 }
 
+func Example_handler_GetStats() {
+	router := setupRouter("test_example_get_stats")
+
+	body := []byte("https://example.com")
+	req, _ := http.NewRequest("POST", "/", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "text/plain")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	req, _ = http.NewRequest("GET", "/api/internal/stats", nil)
+	req.Header.Set("X-Real-IP", "192.168.1.10") // IP из доверенной подсети (например, 192.168.1.0/24)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	fmt.Println(w.Code)
+	// Output: 200
+}
+
 func setupRouter(storageFile string) *gin.Engine {
 	repo, err := file.NewURLRepository(storageFile)
 	if err != nil {

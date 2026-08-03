@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 )
 
@@ -29,9 +30,11 @@ type URL struct {
 }
 
 type ShortenerRepository interface {
-	Store(url URL) (*string, error)
-	GetByShort(short string) (URL, error)
-	StoreAll(urls []URL) ([]URL, error)
-	ListByUserID(userID string) ([]URL, error)
-	Remove(shortURLs []string) BatchDeleteResult
+	Store(ctx context.Context, url URL) (*string, error)
+	GetByShort(ctx context.Context, short string) (URL, error)
+	StoreAll(ctx context.Context, urls []URL) ([]URL, error)
+	ListByUserID(ctx context.Context, userID string) ([]URL, error)
+	Remove(ctx context.Context, shortURLs []string) BatchDeleteResult
+	CountURLs(ctx context.Context) (int, error)
+	CountUsers(ctx context.Context) (int, error)
 }

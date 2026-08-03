@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"os"
 	"reflect"
 	"testing"
 
@@ -13,6 +15,7 @@ import (
 const shortURL = "qWeRtYuI"
 
 func Test_shortenerService_GetOriginalURL(t *testing.T) {
+	ctx := context.TODO()
 	var originalURL = "http://google.com"
 	repo, err := file.NewURLRepository("test_get_original_url")
 	if err != nil {
@@ -22,7 +25,7 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 		Short:    shortURL,
 		Original: originalURL,
 	}
-	_, err = repo.Store(url)
+	_, err = repo.Store(ctx, url)
 	if err != nil {
 		return
 	}
@@ -54,7 +57,7 @@ func Test_shortenerService_GetOriginalURL(t *testing.T) {
 			s := &shortenerService{
 				repo: repo,
 			}
-			got, err := s.GetOriginalURL(tt.shortURL)
+			got, err := s.GetOriginalURL(ctx, tt.shortURL)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetOriginalURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -100,7 +103,7 @@ func Test_shortenerService_GetShortURL(t *testing.T) {
 			s := &shortenerService{
 				repo: repo,
 			}
-			_, err := s.GetShortURL(originalURL, tt.userID)
+			_, err := s.GetShortURL(context.TODO(), originalURL, tt.userID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetShortURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -145,7 +148,7 @@ func Test_shortenerService_ListShortURL(t *testing.T) {
 			s := &shortenerService{
 				repo: repo,
 			}
-			_, err := s.ListShortURL(tt.originalURLsMap, tt.userID)
+			_, err := s.ListShortURL(context.TODO(), tt.originalURLsMap, tt.userID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ListShortURL() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -155,6 +158,7 @@ func Test_shortenerService_ListShortURL(t *testing.T) {
 }
 
 func Test_shortenerService_BatchRemove(t *testing.T) {
+	ctx := context.TODO()
 	var originalURL1 = "http://google.com"
 	var originalURL2 = "http://yandex.ru"
 	var originalURL3 = "http://test.ru"
@@ -165,7 +169,7 @@ func Test_shortenerService_BatchRemove(t *testing.T) {
 		batchSize:  2,
 		maxWorkers: 2,
 	}
-	shortURLMap, err := s.ListShortURL(map[string]string{"uuid1": originalURL1, "uuid2": originalURL2, "uuid3": originalURL3}, userID.String())
+	shortURLMap, err := s.ListShortURL(ctx, map[string]string{"uuid1": originalURL1, "uuid2": originalURL2, "uuid3": originalURL3}, userID.String())
 	if err != nil {
 		return
 	}
@@ -199,13 +203,63 @@ func Test_shortenerService_BatchRemove(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := s.BatchRemove(tt.urls)
+			result := s.BatchRemove(ctx, tt.urls)
 			if (result.Errors != nil) != tt.wantErr {
 				t.Errorf("BatchRemove() error = %v, wantErr %v", result.Errors, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(result.SuccessCount, tt.deletedURLs) {
 				t.Errorf("Deleted %d URLs, want %d", result.SuccessCount, tt.deletedURLs)
+			}
+		})
+	}
+}
+
+func Test_shortenerService_GetStats(t *testing.T) {
+	ctx := context.TODO()
+	repo, err := file.NewURLRepository("test_get_stats")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("test_get_stats")
+
+	s := &shortenerService{
+		repo: repo,
+	}
+
+	userID1 := uuid.New().String()
+	userID2 := uuid.New().String()
+
+	_, _ = s.GetShortURL(ctx, "http://google.com", userID1)
+	_, _ = s.GetShortURL(ctx, "http://yandex.ru", userID1)
+	_, _ = s.GetShortURL(ctx, "http://test.ru", userID2)
+
+	tests := []struct {
+		name      string
+		wantURLs  int
+		wantUsers int
+		wantErr   bool
+	}{
+		{
+			name:      "positive test",
+			wantURLs:  3,
+			wantUsers: 2,
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			urls, users, err := s.GetStats(ctx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetStats() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if urls != tt.wantURLs {
+				t.Errorf("GetStats() urls = %v, want %v", urls, tt.wantURLs)
+			}
+			if users != tt.wantUsers {
+				t.Errorf("GetStats() users = %v, want %v", users, tt.wantUsers)
 			}
 		})
 	}

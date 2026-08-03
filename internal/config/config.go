@@ -13,6 +13,7 @@ import (
 
 const (
 	defaultPort            string = ":8080"
+	grpcPort               string = ":8081"
 	defaultBaseUrl         string = "http://localhost:8080"
 	defaultFileStoragePath string = "filestorage.txt"
 	maxWorkers             int    = 8
@@ -27,6 +28,7 @@ var (
 // generate:reset
 type Config struct {
 	ServerAddr    string `json:"server_addr" mapstructure:"server_addr"`
+	GRPCAddr      string `json:"grpc_addr" mapstructure:"grpc_addr"`
 	ResultBaseURL string `json:"result_base_url" mapstructure:"result_base_url"`
 	FilePath      string `json:"file_path" mapstructure:"file_path"`
 	DatabaseURL   string `json:"database_url" mapstructure:"database_url"`
@@ -37,6 +39,7 @@ type Config struct {
 	EnableHTTPS   bool   `json:"enable_https" mapstructure:"enable_https"`
 	CertFile      string `json:"cert_file" mapstructure:"cert_file"`
 	KeyFile       string `json:"key_file" mapstructure:"key_file"`
+	TrustedSubnet string `json:"trusted_subnet" mapstructure:"trusted_subnet"`
 }
 
 func (c *Config) Validate() error {
@@ -57,6 +60,7 @@ func ParseFlags() Config {
 	pflag.StringVarP(nil, "audit-file", "", "", "audit file path")
 	pflag.StringVarP(nil, "audit-url", "", "", "audit service url")
 	pflag.BoolVarP(nil, "s", "s", false, "enable HTTPS")
+	pflag.StringVar(nil, "t", "t", "CIDR subnet for /api/internal/stats")
 	pflag.Parse()
 
 	viper.SetConfigType("json")
@@ -70,6 +74,7 @@ func ParseFlags() Config {
 	}
 
 	viper.SetDefault("server_addr", defaultPort)
+	viper.SetDefault("grpc_addr", grpcPort)
 	viper.SetDefault("result_base_url", defaultBaseUrl)
 	viper.SetDefault("file_path", defaultFileStoragePath)
 	viper.SetDefault("database_url", "")
@@ -91,6 +96,7 @@ func ParseFlags() Config {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	viper.BindEnv("server_addr", "SERVER_ADDRESS")
+	viper.BindEnv("grpc_addr", "GRPC_ADDRESS")
 	viper.BindEnv("result_base_url", "BASE_URL")
 	viper.BindEnv("file_path", "FILE_STORAGE_PATH")
 	viper.BindEnv("database_url", "DATABASE_DSN")
@@ -99,6 +105,7 @@ func ParseFlags() Config {
 	viper.BindEnv("audit_url", "AUDIT_URL")
 	viper.BindEnv("enable_https", "ENABLE_HTTPS")
 	viper.BindEnv("max_workers", "MAX_WORKERS")
+	viper.BindEnv("trusted_subnet", "TRUSTED_SUBNET")
 
 	viper.BindPFlag("server_addr", pflag.Lookup("a"))
 	viper.BindPFlag("result_base_url", pflag.Lookup("b"))
@@ -107,6 +114,7 @@ func ParseFlags() Config {
 	viper.BindPFlag("audit_file_path", pflag.Lookup("audit-file"))
 	viper.BindPFlag("audit_url", pflag.Lookup("audit-url"))
 	viper.BindPFlag("enable_https", pflag.Lookup("s"))
+	viper.BindPFlag("trusted_subnet", pflag.Lookup("t"))
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
